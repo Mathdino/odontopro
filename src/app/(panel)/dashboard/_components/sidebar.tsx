@@ -16,13 +16,14 @@ import {
   CalendarCheck,
   ChevronLeft,
   ChevronRight,
-  Folder,
   List,
+  Scissors,
   Settings,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import LogoImg from "../../../../../public/logo-odonto.png";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 
 export function SidebarDashboard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -47,10 +48,6 @@ export function SidebarDashboard({ children }: { children: React.ReactNode }) {
               alt="Logo do OdontoPRO"
               priority
               quality={100}
-              style={{
-                width: "auto",
-                height: "auto",
-              }}
             />
           )}
         </div>
@@ -65,6 +62,82 @@ export function SidebarDashboard({ children }: { children: React.ReactNode }) {
             <ChevronRight className="w-12 h-12" />
           )}
         </Button>
+
+        {/*EXIBE SOMENTE OS ICONES QUANDO A SIDEBAR ESTIVER FECHADA */}
+        {isCollapsed && (
+          <nav className="flex flex-col gap-1 overflow-hidden mt-2">
+            <SidebarLink
+              href="/dashboard"
+              label="Agendamentos"
+              pathname={pathname}
+              isCollapsed={isCollapsed}
+              icon={<CalendarCheck className="w-6 h-6" />}
+            />
+            <SidebarLink
+              href="/dashboard/services"
+              label="Serviços"
+              pathname={pathname}
+              isCollapsed={isCollapsed}
+              icon={<Scissors className="w-6 h-6" />}
+            />
+            <SidebarLink
+              href="/dashboard/profile"
+              label="Configurações"
+              pathname={pathname}
+              isCollapsed={isCollapsed}
+              icon={<Settings className="w-6 h-6" />}
+            />
+            <SidebarLink
+              href="/dashboard/plans"
+              label="Planos"
+              pathname={pathname}
+              isCollapsed={isCollapsed}
+              icon={<Banknote className="w-6 h-6" />}
+            />
+          </nav>
+        )}
+
+        {/* SIDEBAR ABERTA */}
+        <Collapsible open={!isCollapsed}>
+          <CollapsibleContent>
+            <nav className="flex flex-col gap-1 overflow-hidden">
+              <span className="text-sm text-gray-400 font-medium mt-1 uppercase">
+                Painel
+              </span>
+              <SidebarLink
+                href="/dashboard"
+                label="Agendamentos"
+                pathname={pathname}
+                isCollapsed={isCollapsed}
+                icon={<CalendarCheck className="w-6 h-6" />}
+              />
+              <SidebarLink
+                href="/dashboard/services"
+                label="Serviços"
+                pathname={pathname}
+                isCollapsed={isCollapsed}
+                icon={<Scissors className="w-6 h-6" />}
+              />
+              <span className="text-sm text-gray-400 font-medium mt-1 uppercase">
+                Minha Conta
+              </span>
+              <SidebarLink
+                href="/dashboard/profile"
+                label="Configurações"
+                pathname={pathname}
+                isCollapsed={isCollapsed}
+                icon={<Settings className="w-6 h-6" />}
+              />
+              <SidebarLink
+                href="/dashboard/plans"
+                label="Planos"
+                pathname={pathname}
+                isCollapsed={isCollapsed}
+                icon={<Banknote className="w-6 h-6" />}
+              />
+            </nav>
+          </CollapsibleContent>
+        </Collapsible>
       </aside>
 
       <div
@@ -112,7 +185,7 @@ export function SidebarDashboard({ children }: { children: React.ReactNode }) {
                   label="Serviços"
                   pathname={pathname}
                   isCollapsed={isCollapsed}
-                  icon={<Folder className="w-6 h-6" />}
+                  icon={<Scissors className="w-6 h-6" />}
                 />
 
                 <SidebarLink
