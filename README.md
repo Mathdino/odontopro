@@ -1,3 +1,14 @@
+<!-- .ENV
+AUTH_SECRET="J9va3lbiGZL1ZSrMxG1qInM8Pde7aP8eRlGRQrfRyrc=" # Added by `npx auth`. Read more: https://cli.authjs.dev
+NEXTAUTH_URL="http://localhost:3000"
+
+DATABASE_URL="postgresql://neondb_owner:npg_IUvYk7Ka3fNA@ep-purple-glitter-ac4s49js-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require"
+
+#LOGIN GITHUB
+AUTH_GITHUB_ID = Ov23liUpdF4XenqMwpqG
+AUTH_GITHUB_SECRET = a2cb60070678ab92fb70d8c8ce2a43778efbb878
+-->
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
