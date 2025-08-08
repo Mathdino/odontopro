@@ -16,10 +16,12 @@ import { useSession } from "next-auth/react";
 import { handleRegister } from "../_actions/login";
 
 export function Header() {
+  const { data: session, status } = useSession();
+
   //QUANDO CLICAR NO LINK DO MENU MOBILE ELE FECHA AUTOMATICAMENTE
   const [isOpen, setIsOpen] = useState(false);
 
-  const { data: session, status } = useSession();
+  
 
   //ARRAY DE LISTAS DO MENU
   const navItems = [
@@ -51,7 +53,7 @@ export function Header() {
       ) : session ? (
         <Link
           href="/dashboard"
-          className="flex items-center justify-center gap-2"
+          className="flex items-center justify-center gap-2 bg-zinc-900 text-white py-1 rounded-md px-4"
         >
           Acessar Clinica
         </Link>
@@ -88,7 +90,7 @@ export function Header() {
 
           <SheetContent
             side="right"
-            className="w-[240px] sm:w-[300px] z-[9999]"
+            className="w-[240px] sm:w-[300px] z-[9999] px-4"
           >
             <SheetHeader></SheetHeader>
             <SheetTitle>Menu</SheetTitle>

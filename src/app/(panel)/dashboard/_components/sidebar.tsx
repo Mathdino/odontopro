@@ -155,6 +155,7 @@ export function SidebarDashboard({ children }: { children: React.ReactNode }) {
                   asChild
                   size="icon"
                   className="md:hidden"
+                  onClick={() => setIsCollapsed(false)}
                 >
                   <List className="w-5 h-5" />
                 </Button>
