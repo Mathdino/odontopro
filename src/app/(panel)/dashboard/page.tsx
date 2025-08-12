@@ -5,7 +5,7 @@ export default async function Dashboard() {
   const session = await getSession();
 
   if (!session) {
-    redirect("/");
+    redirect("/")
   }
 
   return (

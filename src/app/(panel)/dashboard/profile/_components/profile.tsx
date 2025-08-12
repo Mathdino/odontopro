@@ -1,0 +1,95 @@
+"use client"
+import { useProfileForm } from "./profile-form"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
+import imgTeste from "../../../../../../public/foto1.png"
+import { SelectTrigger } from "@radix-ui/react-select";
+
+export function ProfileContent(){
+
+
+  const form = useProfileForm();
+
+
+  return(
+    <div className="mx-auto">
+      <Form {...form}>
+        <form>
+          <Card>
+            <CardHeader>
+              <CardTitle>Meu Perfil</CardTitle>
+            </CardHeader>
+            <CardContent className='space-y-6'>
+              <div className="flex justify-center">
+                <div className="bg-gray-200 relative h-40 w-40 rounded-full overflow-hidden">
+                  <Image 
+                  src={imgTeste}
+                  alt="Foto da clinica"
+                  fill
+                  className="object-cover"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Nome Completo</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Digite o nome da clinica..." />
+                    </FormControl>
+                  </FormItem>
+                )}
+                />
+
+                <FormField control={form.control} name="address" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Endereço Completo</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Digite o endereço da clinica..." />
+                    </FormControl>
+                  </FormItem>
+                )}
+                />
+
+                <FormField control={form.control} name="address" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Telefone</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="(11)xxxxx-xxxx" />
+                    </FormControl>
+                  </FormItem>
+                )}
+                />
+
+                <FormField control={form.control} name="address" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Status</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ? "active" : "inactive"}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o status da clinica"/>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">ATIVO (clinica aberta)</SelectItem>
+                          <SelectItem value="inactive">INATIVO (clinica fechada)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                  </FormItem>
+                )}
+                />
+
+                
+              </div>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
+    </div>
+  )
+}
