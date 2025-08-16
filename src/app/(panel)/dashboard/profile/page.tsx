@@ -19,6 +19,6 @@ const session = await getSession();
   
 
   return (
-    <ProfileContent/>
+    <ProfileContent user={user}/>
   )
 }

@@ -53,14 +53,14 @@ export function Header() {
       ) : session ? (
         <Link
           href="/dashboard"
-          className="flex items-center justify-center gap-2 bg-zinc-900 text-white py-1 rounded-md px-4"
+          className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-1 rounded-md px-4"
         >
-          Acessar Clinica
+          Portal da Clinica
         </Link>
       ) : (
         <Button onClick={handleLogin}>
           <CircleUser />
-          Portal da Clinica
+          Login Clinica
         </Button>
       )}
     </>
