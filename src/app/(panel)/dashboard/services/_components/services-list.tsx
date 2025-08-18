@@ -1,12 +1,21 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { useState } from "react"
 import { DialogService } from "./dialog-service";
-export function ServicesList() {
+import { Service } from "@/generated/prisma";
+import { formatCurrency } from "@/utils/formatCurrency";
+
+
+  interface ServiceListProps{
+    services: Service[]
+
+  }
+
+export function ServicesList({services}: ServiceListProps) {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -25,10 +34,37 @@ export function ServicesList() {
             </DialogTrigger>
 
             <DialogContent>
-              <DialogService /> 
-
+              <DialogService closeModal={() => {
+                setIsDialogOpen(false)
+              }} /> 
             </DialogContent>
           </CardHeader>
+
+          <CardContent >
+            <div className="space-y-4 mt-5">
+              {services.map((service) => (
+                <article key={service.id} className="flex justify-between items-center">
+                  <div className="flex space-x-2 items-center">
+                    <span className="font-medium">{service.name}</span>
+                    <span className="text-gray-500">-</span>
+                    <span className="text-gray-500">{formatCurrency((service.price / 100))}</span>
+
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button variant="secondary" size="icon" onClick={() => {}}>
+                      <Pencil className="w-4 h-4"/>
+                    </Button>
+                    <Button className="bg-red-500 hover:bg-red-400" variant="ghost" size="icon" onClick={() => {}}>
+                      <X className="w-4 h-4"/>
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </CardContent>
+
+
         </Card>
       </section>
     </Dialog>

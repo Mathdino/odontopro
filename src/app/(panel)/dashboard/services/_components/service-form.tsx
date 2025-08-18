@@ -5,8 +5,8 @@ import z from "zod";
 const formSchema = z.object({
   name: z.string().min(1, { message: "Nome do serviço é obrigatório" }),
   price: z.string().min(1, { message: "Preço do serviço é obrigatório" }),
-  hours: z.string,
-  minutes: z.string,
+  hours: z.string(),
+  minutes: z.string(),
 })
 
 export interface UseDialogServiceFormProps{

@@ -14,7 +14,7 @@ export default async function ServiceContent({ userId }: ServicesContentProps) {
 
 
   return (
-      <ServicesList />
+      <ServicesList services={services.data || []} />
   )
 }
 

@@ -17,8 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   List,
-  Scissors,
   Settings,
+  Folder,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -78,7 +78,7 @@ export function SidebarDashboard({ children }: { children: React.ReactNode }) {
               label="Serviços"
               pathname={pathname}
               isCollapsed={isCollapsed}
-              icon={<Scissors className="w-6 h-6" />}
+              icon={<Folder className="w-6 h-6" />}
             />
             <SidebarLink
               href="/dashboard/profile"
@@ -116,7 +116,7 @@ export function SidebarDashboard({ children }: { children: React.ReactNode }) {
                 label="Serviços"
                 pathname={pathname}
                 isCollapsed={isCollapsed}
-                icon={<Scissors className="w-6 h-6" />}
+                icon={<Folder className="w-6 h-6" />}
               />
               <span className="text-sm text-gray-400 font-medium mt-1 uppercase">
                 Minha Conta
@@ -186,7 +186,7 @@ export function SidebarDashboard({ children }: { children: React.ReactNode }) {
                   label="Serviços"
                   pathname={pathname}
                   isCollapsed={isCollapsed}
-                  icon={<Scissors className="w-6 h-6" />}
+                  icon={<Folder className="w-6 h-6" />}
                 />
 
                 <SidebarLink
