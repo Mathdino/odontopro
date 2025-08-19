@@ -6,19 +6,21 @@ import z from "zod"
 import { revalidatePath } from "next/cache"
 
 const formSchema = z.object({
-  name: z.string().min(1, "Nome do serviço é obrigatório"),
-  price: z.number().min(1, "Preço do serviço é obrigatório"),
+  serviceId: z.string().min(1, "O Id do serviço é obrigatório"),
+  name: z.string().min(1, "O nome do serviço é obrigatório"),
+  price: z.number().min(1, "O preço do serviço é obrigatório"),
   duration: z.number(),
 })
 
 type FromSchema = z.infer<typeof formSchema>
 
-export async function createService(formData: FromSchema) {
+export async function updateService(formData: FromSchema) {
   const session = await auth();
 
   if(!session?.user?.id) {
     return {
-      error: "Falha ao cadastrar serviço"
+      error: "Falha ao atualizar serviço"
+
     }
 }
 
@@ -26,30 +28,33 @@ export async function createService(formData: FromSchema) {
 
   if(!schema.success) {
     return {
-      error: "Preencha todos os campos"
+      error: "Atulize os campos corretos"
     }
   }
 
-  try{
-
-    const newService = await prisma.service.create({
+  try {
+    await prisma.service.update({
+      where: {
+        id: formData.serviceId,
+        userId: session?.user?.id,
+      },
       data: {
         name: formData.name,
         price: formData.price,
         duration: formData.duration,
-        userId: session.user.id,
-    }})
-
+      }
+    })
     revalidatePath("/dashboard/services")
-
-
+    
     return {
-      data: newService
-
+      data: "Serviço atualizado com sucesso"
     }
+
   } catch (err) {
     return {
-      error: "Erro ao cadastrar serviço"
+      error: "Erro ao atualizar serviço"
     }
   }
+
+
 }
