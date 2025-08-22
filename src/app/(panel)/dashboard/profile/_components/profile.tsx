@@ -10,15 +10,15 @@ import Image from "next/image";
 import imgTeste from "../../../../../../public/foto1.png"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LogOut } from "lucide-react";
 import { string } from "zod";
 import { cn } from "@/lib/utils";
 import { Prisma } from "@/generated/prisma";
 import { updateProfile } from "../_actions/update-profile";
 import { toast } from "sonner";
 import { formatPhone } from "@/utils/formatPhone";
-
-
+import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 
 
@@ -32,8 +32,11 @@ interface ProfileContentProps {
 }
 
 export function ProfileContent({ user }: ProfileContentProps){
+  const router = useRouter();
   const [selectedHours, setSelectedHours] = useState<string[]>(user.times ?? []);
   const [dialogIsOpen, setDialogIsOpen] = useState(false);
+  const { update } = useSession();
+
 
 
   const form = useProfileForm({
@@ -92,6 +95,13 @@ export function ProfileContent({ user }: ProfileContentProps){
     }
 
     toast.success(response.data)
+  }
+
+  async function handleLogout() {
+    await signOut();
+    await update();
+    router.replace("/");
+
   }
 
 
@@ -262,6 +272,12 @@ export function ProfileContent({ user }: ProfileContentProps){
           </Card>
         </form>
       </Form>
+
+      <section className="mt-4">
+        <Button variant="destructive" onClick={handleLogout} className="align-center">
+          Sair da Conta <LogOut className="h-4 w-4" />
+        </Button>
+      </section>
     </div>
   )
 }
