@@ -81,6 +81,18 @@ model Professional {
   updatedAt       DateTime @updatedAt
 }
 
+model WhatsappMessage {
+  id                  String   @id @default(cuid())
+  confirmationMessage String
+  cancellationMessage String
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("whatsapp_messages")
+}
+
 model User {
   id                 String          @id @default(cuid())
   name               String?
@@ -100,6 +112,7 @@ model User {
   sessions           Session[]
   appointments       Appointment[]
   professionals      Professional[]  // Nova relação
+  whatsappMessage    WhatsappMessage? // Nova relação
   Authenticator      Authenticator[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt

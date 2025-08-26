@@ -41,14 +41,13 @@ import {
   UserX,
   UserCheck,
   Camera,
+  MessageSquare,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { string } from "zod";
+  getWhatsappMessages,
+  updateWhatsappMessages,
+} from "../_actions/whatsapp-actions";
 import { cn } from "@/lib/utils";
 import { Prisma } from "@/generated/prisma";
 import { updateProfile } from "../_actions/update-profile";
@@ -59,6 +58,12 @@ import {
   deleteProfessional,
   getProfessionals,
 } from "../_actions/professional-actions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ImageCrop } from "./image-crop";
 import { toast } from "sonner";
 import { formatPhone } from "@/utils/formatPhone";
@@ -81,6 +86,133 @@ export function ProfileContent({ user }: ProfileContentProps) {
   const [selectedHours, setSelectedHours] = useState<string[]>(
     user.times ?? []
   );
+
+  // Estados para mensagens do WhatsApp
+  const [whatsappMessages, setWhatsappMessages] = useState({
+    confirmationMessage:
+      "Olá, [Nome]! Seu horário está confirmado para [data] às [hora]. Qualquer imprevisto, é só nos avisar.",
+    cancellationMessage:
+      "Olá, [Nome]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
+  });
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({
+    confirmationMessage: [] as string[],
+    cancellationMessage: [] as string[]
+  });
+
+  // Carregar mensagens do WhatsApp
+  useEffect(() => {
+    async function loadWhatsappMessages() {
+      const result = await getWhatsappMessages();
+      if (result.data) {
+        setWhatsappMessages({
+          confirmationMessage: result.data.confirmationMessage,
+          cancellationMessage: result.data.cancellationMessage,
+        });
+      }
+    }
+    loadWhatsappMessages();
+  }, []);
+
+  // Função para validar se as caixas obrigatórias estão presentes
+  function validateRequiredFields(message: string): string[] {
+    const missingFields: string[] = [];
+
+    if (!message.includes("[Nome]")) {
+      missingFields.push("Nome");
+    }
+
+    if (!message.includes("[data]")) {
+      missingFields.push("data");
+    }
+
+    if (!message.includes("[hora]")) {
+      missingFields.push("hora");
+    }
+
+    return missingFields;
+  }
+
+  // Função para limpar erros quando o usuário digita
+  function handleConfirmationMessageChange(value: string) {
+    setWhatsappMessages((prev) => ({
+      ...prev,
+      confirmationMessage: value,
+    }));
+    
+    // Limpar erros se o campo foi corrigido
+    if (validationErrors.confirmationMessage.length > 0) {
+      const newErrors = validateRequiredFields(value);
+      setValidationErrors(prev => ({
+        ...prev,
+        confirmationMessage: newErrors
+      }));
+    }
+  }
+
+  function handleCancellationMessageChange(value: string) {
+    setWhatsappMessages((prev) => ({
+      ...prev,
+      cancellationMessage: value,
+    }));
+    
+    // Limpar erros se o campo foi corrigido
+    if (validationErrors.cancellationMessage.length > 0) {
+      const newErrors = validateRequiredFields(value);
+      setValidationErrors(prev => ({
+        ...prev,
+        cancellationMessage: newErrors
+      }));
+    }
+  }
+
+  // Função para salvar mensagens do WhatsApp
+  async function saveWhatsappMessages() {
+    setIsLoadingMessages(true);
+    
+    // Limpar erros anteriores
+    setValidationErrors({
+      confirmationMessage: [],
+      cancellationMessage: []
+    });
+    
+    try {
+      // Validar mensagem de confirmação
+      const confirmationMissing = validateRequiredFields(whatsappMessages.confirmationMessage);
+      const cancellationMissing = validateRequiredFields(whatsappMessages.cancellationMessage);
+      
+      // Se houver erros, definir os estados de erro e parar
+      if (confirmationMissing.length > 0 || cancellationMissing.length > 0) {
+        setValidationErrors({
+          confirmationMessage: confirmationMissing,
+          cancellationMessage: cancellationMissing
+        });
+        
+        if (confirmationMissing.length > 0) {
+          toast.error(`Mensagem de confirmação está faltando: ${confirmationMissing.join(', ')}`);
+        }
+        
+        if (cancellationMissing.length > 0) {
+          toast.error(`Mensagem de cancelamento está faltando: ${cancellationMissing.join(', ')}`);
+        }
+        
+        setIsLoadingMessages(false);
+        return;
+      }
+      
+      const result = await updateWhatsappMessages(whatsappMessages);
+      if (result.data) {
+        toast.success("Mensagens salvas com sucesso!");
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error("Erro ao salvar mensagens");
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  }
+
   const [dialogIsOpen, setDialogIsOpen] = useState(false);
   const [addProfessionalDialogOpen, setAddProfessionalDialogOpen] =
     useState(false);
@@ -187,11 +319,9 @@ export function ProfileContent({ user }: ProfileContentProps) {
     toast.success(response.data);
   }
 
-  async function handleLogout() {
-    await signOut();
-    await update();
-    router.replace("/");
-  }
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/" });
+  };
 
   function toggleProfessionalHour(hour: string) {
     setNewProfessional((prev) => ({
@@ -236,17 +366,22 @@ export function ProfileContent({ user }: ProfileContentProps) {
     }
   }
 
-  function handleCropComplete(croppedImage: string) {
-    if (isEditingImage) {
-      setEditingProfessional((prev: Professional | null) =>
-        prev ? { ...prev, image: croppedImage } : null
-      );
+  const handleCropComplete = (croppedImageUrl: string) => {
+    if (isEditingImage && editingProfessional) {
+      setEditingProfessional({
+        ...editingProfessional,
+        image: croppedImageUrl,
+      });
     } else {
-      setNewProfessional((prev) => ({ ...prev, image: croppedImage }));
+      setNewProfessional({
+        ...newProfessional,
+        image: croppedImageUrl,
+      });
     }
+    setCropDialogOpen(false);
     setSelectedImageFile(null);
     setIsEditingImage(false);
-  }
+  };
 
   async function addProfessional() {
     if (
@@ -331,19 +466,29 @@ export function ProfileContent({ user }: ProfileContentProps) {
   }
 
   // Nova função para alternar status do profissional
-  function toggleProfessionalStatus(professionalId: string) {
-    setProfessionals((prev) =>
-      prev.map((prof) =>
-        prof.id === professionalId ? { ...prof, status: !prof.status } : prof
-      )
-    );
-
+  async function toggleProfessionalStatus(professionalId: string) {
     const professional = professionals.find((p) => p.id === professionalId);
-    const newStatus = !professional?.status;
+    if (!professional) return;
 
-    toast.success(
-      `Profissional ${newStatus ? "ativado" : "desativado"} com sucesso!`
-    );
+    const newStatus = !professional.status;
+
+    // Chama a action do banco de dados
+    const result = await toggleStatusAction(professionalId);
+
+    if (result.data) {
+      // Atualiza o estado local apenas se a operação no banco foi bem-sucedida
+      setProfessionals((prev) =>
+        prev.map((prof) =>
+          prof.id === professionalId ? { ...prof, status: newStatus } : prof
+        )
+      );
+
+      toast.success(
+        `Profissional ${newStatus ? "ativado" : "desativado"} com sucesso!`
+      );
+    } else if (result.error) {
+      toast.error(result.error);
+    }
   }
 
   // Nova função para remover profissional
@@ -1005,6 +1150,104 @@ export function ProfileContent({ user }: ProfileContentProps) {
                 </div>
               ))
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card de Mensagens do WhatsApp */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Mensagens Automáticas do WhatsApp
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Configure as mensagens automáticas que serão enviadas aos clientes
+            via WhatsApp.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Deixe as caixas de [Nome], [data] e [hora] para que a mensagem seja
+            preenchida automaticamente, com os dados do cliente e agendamento.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="confirmationMessage" className="font-semibold">
+                Mensagem de Confirmação
+              </Label>
+              <Textarea
+                id="confirmationMessage"
+                value={whatsappMessages.confirmationMessage}
+                onChange={(e) => handleConfirmationMessageChange(e.target.value)}
+                placeholder="Digite a mensagem de confirmação... (Obrigatório incluir: [Nome], [data] e [hora])"
+                className={`mt-2 min-h-[100px] ${validationErrors.confirmationMessage.length > 0 ? 'border-red-500 border-2 focus:border-red-500' : ''}`}
+              />
+              {validationErrors.confirmationMessage.length > 0 && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-sm font-medium mb-2">
+                    ⚠️ Campos obrigatórios faltando: {validationErrors.confirmationMessage.join(', ')}
+                  </p>
+                  <p className="text-red-600 text-xs">
+                    <strong>Como resolver:</strong> Adicione as seguintes caixas na sua mensagem:
+                  </p>
+                  <ul className="text-red-600 text-xs mt-1 ml-4">
+                    {validationErrors.confirmationMessage.includes('Nome') && (
+                      <li>• <code className="bg-red-100 px-1 rounded">[Nome]</code> - será substituído pelo nome do cliente</li>
+                    )}
+                    {validationErrors.confirmationMessage.includes('data') && (
+                      <li>• <code className="bg-red-100 px-1 rounded">[data]</code> - será substituído pela data do agendamento</li>
+                    )}
+                    {validationErrors.confirmationMessage.includes('hora') && (
+                      <li>• <code className="bg-red-100 px-1 rounded">[hora]</code> - será substituído pela hora do agendamento</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="cancellationMessage" className="font-semibold">
+                Mensagem de Cancelamento
+              </Label>
+              <Textarea
+                id="cancellationMessage"
+                value={whatsappMessages.cancellationMessage}
+                onChange={(e) => handleCancellationMessageChange(e.target.value)}
+                placeholder="Digite a mensagem de cancelamento... (Obrigatório incluir: [Nome], [data] e [hora])"
+                className={`mt-2 min-h-[100px] ${validationErrors.cancellationMessage.length > 0 ? 'border-red-500 border-2 focus:border-red-500' : ''}`}
+              />
+              {validationErrors.cancellationMessage.length > 0 && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-sm font-medium mb-2">
+                    ⚠️ Campos obrigatórios faltando: {validationErrors.cancellationMessage.join(', ')}
+                  </p>
+                  <p className="text-red-600 text-xs">
+                    <strong>Como resolver:</strong> Adicione as seguintes caixas na sua mensagem:
+                  </p>
+                  <ul className="text-red-600 text-xs mt-1 ml-4">
+                    {validationErrors.cancellationMessage.includes('Nome') && (
+                      <li>• <code className="bg-red-100 px-1 rounded">[Nome]</code> - será substituído pelo nome do cliente</li>
+                    )}
+                    {validationErrors.cancellationMessage.includes('data') && (
+                      <li>• <code className="bg-red-100 px-1 rounded">[data]</code> - será substituído pela data do agendamento</li>
+                    )}
+                    {validationErrors.cancellationMessage.includes('hora') && (
+                      <li>• <code className="bg-red-100 px-1 rounded">[hora]</code> - será substituído pela hora do agendamento</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <Button
+              onClick={saveWhatsappMessages}
+              disabled={isLoadingMessages}
+              className="w-full bg-emerald-500 hover:bg-emerald-400"
+            >
+              {isLoadingMessages ? "Salvando..." : "Salvar Mensagens"}
+            </Button>
           </div>
         </CardContent>
       </Card>
