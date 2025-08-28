@@ -28,6 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScheduleTimesLista } from "./schedule-times-list";
+import { createNewAppointment } from "../_actions/create-appointment";
+import { toast, ToastT } from "sonner";
 
 type UserWithServiceAndSubscription = Prisma.UserGetPayload<{
   include: {
@@ -99,7 +101,29 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     selectedTime,
   ]);
 
-  async function handleRegisterAppointment(formData: AppointmentFormData) {}
+  async function handleRegisterAppointment(formData: AppointmentFormData) {
+    if (!selectedTime) {
+      return;
+    }
+
+    const response = await createNewAppointment({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      date: formData.date,
+      serviceId: formData.serviceId,
+      clinicId: clinic.id,
+      time: selectedTime,
+    });
+    if (response.error) {
+      toast.error(response.error);
+      return;
+    }
+
+    toast.success("Agendamento realizado com sucesso!");
+    form.reset();
+    setSelectedTime("");
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
