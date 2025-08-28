@@ -87,28 +87,46 @@ export function ProfileContent({ user }: ProfileContentProps) {
     user.times ?? []
   );
 
-  // Estados para mensagens do WhatsApp
+  // Estados para mensagens do WhatsApp - iniciar vazio para evitar hidratação
   const [whatsappMessages, setWhatsappMessages] = useState({
-    confirmationMessage:
-      "Olá, [Nome]! Seu horário está confirmado para [data] às [hora]. Qualquer imprevisto, é só nos avisar.",
-    cancellationMessage:
-      "Olá, [Nome]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
+    confirmationMessage: "",
+    cancellationMessage: "",
   });
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true); // Iniciar como true
   const [validationErrors, setValidationErrors] = useState({
     confirmationMessage: [] as string[],
-    cancellationMessage: [] as string[]
+    cancellationMessage: [] as string[],
   });
 
   // Carregar mensagens do WhatsApp
   useEffect(() => {
     async function loadWhatsappMessages() {
-      const result = await getWhatsappMessages();
-      if (result.data) {
+      try {
+        const result = await getWhatsappMessages();
+        if (result.data) {
+          setWhatsappMessages({
+            confirmationMessage: result.data.confirmationMessage,
+            cancellationMessage: result.data.cancellationMessage,
+          });
+        } else {
+          // Se não há dados salvos, usar valores padrão
+          setWhatsappMessages({
+            confirmationMessage:
+              "Olá, [Nome-cliente]! Seu horário está confirmado para [data] às [hora]. Qualquer imprevisto, é só nos avisar.",
+            cancellationMessage:
+              "Olá, [Nome-cliente]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
+          });
+        }
+      } catch (error) {
+        // Em caso de erro, usar valores padrão
         setWhatsappMessages({
-          confirmationMessage: result.data.confirmationMessage,
-          cancellationMessage: result.data.cancellationMessage,
+          confirmationMessage:
+            "Olá, [Nome]! Seu horário está confirmado para [data] às [hora]. Qualquer imprevisto, é só nos avisar.",
+          cancellationMessage:
+            "Olá, [Nome]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
         });
+      } finally {
+        setIsLoadingMessages(false);
       }
     }
     loadWhatsappMessages();
@@ -118,8 +136,8 @@ export function ProfileContent({ user }: ProfileContentProps) {
   function validateRequiredFields(message: string): string[] {
     const missingFields: string[] = [];
 
-    if (!message.includes("[Nome]")) {
-      missingFields.push("Nome");
+    if (!message.includes("[Nome-cliente]")) {
+      missingFields.push("Nome-cliente");
     }
 
     if (!message.includes("[data]")) {
@@ -139,13 +157,13 @@ export function ProfileContent({ user }: ProfileContentProps) {
       ...prev,
       confirmationMessage: value,
     }));
-    
+
     // Limpar erros se o campo foi corrigido
     if (validationErrors.confirmationMessage.length > 0) {
       const newErrors = validateRequiredFields(value);
-      setValidationErrors(prev => ({
+      setValidationErrors((prev) => ({
         ...prev,
-        confirmationMessage: newErrors
+        confirmationMessage: newErrors,
       }));
     }
   }
@@ -155,13 +173,13 @@ export function ProfileContent({ user }: ProfileContentProps) {
       ...prev,
       cancellationMessage: value,
     }));
-    
+
     // Limpar erros se o campo foi corrigido
     if (validationErrors.cancellationMessage.length > 0) {
       const newErrors = validateRequiredFields(value);
-      setValidationErrors(prev => ({
+      setValidationErrors((prev) => ({
         ...prev,
-        cancellationMessage: newErrors
+        cancellationMessage: newErrors,
       }));
     }
   }
@@ -169,37 +187,49 @@ export function ProfileContent({ user }: ProfileContentProps) {
   // Função para salvar mensagens do WhatsApp
   async function saveWhatsappMessages() {
     setIsLoadingMessages(true);
-    
+
     // Limpar erros anteriores
     setValidationErrors({
       confirmationMessage: [],
-      cancellationMessage: []
+      cancellationMessage: [],
     });
-    
+
     try {
       // Validar mensagem de confirmação
-      const confirmationMissing = validateRequiredFields(whatsappMessages.confirmationMessage);
-      const cancellationMissing = validateRequiredFields(whatsappMessages.cancellationMessage);
-      
+      const confirmationMissing = validateRequiredFields(
+        whatsappMessages.confirmationMessage
+      );
+      const cancellationMissing = validateRequiredFields(
+        whatsappMessages.cancellationMessage
+      );
+
       // Se houver erros, definir os estados de erro e parar
       if (confirmationMissing.length > 0 || cancellationMissing.length > 0) {
         setValidationErrors({
           confirmationMessage: confirmationMissing,
-          cancellationMessage: cancellationMissing
+          cancellationMessage: cancellationMissing,
         });
-        
+
         if (confirmationMissing.length > 0) {
-          toast.error(`Mensagem de confirmação está faltando: ${confirmationMissing.join(', ')}`);
+          toast.error(
+            `Mensagem de confirmação está faltando: ${confirmationMissing.join(
+              ", "
+            )}`
+          );
         }
-        
+
         if (cancellationMissing.length > 0) {
-          toast.error(`Mensagem de cancelamento está faltando: ${cancellationMissing.join(', ')}`);
+          toast.error(
+            `Mensagem de cancelamento está faltando: ${cancellationMissing.join(
+              ", "
+            )}`
+          );
         }
-        
+
         setIsLoadingMessages(false);
         return;
       }
-      
+
       const result = await updateWhatsappMessages(whatsappMessages);
       if (result.data) {
         toast.success("Mensagens salvas com sucesso!");
@@ -536,7 +566,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <Card>
             <CardHeader>
-              <CardTitle>Perfil Barbearia</CardTitle>
+              <CardTitle>Perfil Cliníca</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex justify-center">
@@ -751,7 +781,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <p className="text-sm text-muted-foreground order-1 sm:order-none">
-                Gerencie os profissionais da sua barbearia
+                Gerencie os profissionais da sua clinica
               </p>
 
               {/* Status dos profissionais ativos - visível apenas no mobile */}
@@ -789,7 +819,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
                 <DialogHeader>
                   <DialogTitle>Adicionar Novo Profissional</DialogTitle>
                   <DialogDescription>
-                    Cadastre um novo profissional para sua barbearia
+                    Cadastre um novo profissional para sua clinica
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -1155,100 +1185,172 @@ export function ProfileContent({ user }: ProfileContentProps) {
       </Card>
 
       {/* Card de Mensagens do WhatsApp */}
-      <Card>
+      <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
             Mensagens Automáticas do WhatsApp
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Configure as mensagens automáticas que serão enviadas aos clientes
-            via WhatsApp.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Deixe as caixas de [Nome], [data] e [hora] para que a mensagem seja
-            preenchida automaticamente, com os dados do cliente e agendamento.
-          </p>
-
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="confirmationMessage" className="font-semibold">
-                Mensagem de Confirmação
-              </Label>
-              <Textarea
-                id="confirmationMessage"
-                value={whatsappMessages.confirmationMessage}
-                onChange={(e) => handleConfirmationMessageChange(e.target.value)}
-                placeholder="Digite a mensagem de confirmação... (Obrigatório incluir: [Nome], [data] e [hora])"
-                className={`mt-2 min-h-[100px] ${validationErrors.confirmationMessage.length > 0 ? 'border-red-500 border-2 focus:border-red-500' : ''}`}
-              />
-              {validationErrors.confirmationMessage.length > 0 && (
-                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-red-700 text-sm font-medium mb-2">
-                    ⚠️ Campos obrigatórios faltando: {validationErrors.confirmationMessage.join(', ')}
-                  </p>
-                  <p className="text-red-600 text-xs">
-                    <strong>Como resolver:</strong> Adicione as seguintes caixas na sua mensagem:
-                  </p>
-                  <ul className="text-red-600 text-xs mt-1 ml-4">
-                    {validationErrors.confirmationMessage.includes('Nome') && (
-                      <li>• <code className="bg-red-100 px-1 rounded">[Nome]</code> - será substituído pelo nome do cliente</li>
-                    )}
-                    {validationErrors.confirmationMessage.includes('data') && (
-                      <li>• <code className="bg-red-100 px-1 rounded">[data]</code> - será substituído pela data do agendamento</li>
-                    )}
-                    {validationErrors.confirmationMessage.includes('hora') && (
-                      <li>• <code className="bg-red-100 px-1 rounded">[hora]</code> - será substituído pela hora do agendamento</li>
-                    )}
-                  </ul>
-                </div>
-              )}
+        <CardContent>
+          {isLoadingMessages ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-gray-500">Carregando mensagens...</div>
             </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Configure as mensagens automáticas que serão enviadas via
+                WhatsApp para confirmação e cancelamento de agendamentos.
+              </p>
 
-            <div>
-              <Label htmlFor="cancellationMessage" className="font-semibold">
-                Mensagem de Cancelamento
-              </Label>
-              <Textarea
-                id="cancellationMessage"
-                value={whatsappMessages.cancellationMessage}
-                onChange={(e) => handleCancellationMessageChange(e.target.value)}
-                placeholder="Digite a mensagem de cancelamento... (Obrigatório incluir: [Nome], [data] e [hora])"
-                className={`mt-2 min-h-[100px] ${validationErrors.cancellationMessage.length > 0 ? 'border-red-500 border-2 focus:border-red-500' : ''}`}
-              />
-              {validationErrors.cancellationMessage.length > 0 && (
-                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-red-700 text-sm font-medium mb-2">
-                    ⚠️ Campos obrigatórios faltando: {validationErrors.cancellationMessage.join(', ')}
-                  </p>
-                  <p className="text-red-600 text-xs">
-                    <strong>Como resolver:</strong> Adicione as seguintes caixas na sua mensagem:
-                  </p>
-                  <ul className="text-red-600 text-xs mt-1 ml-4">
-                    {validationErrors.cancellationMessage.includes('Nome') && (
-                      <li>• <code className="bg-red-100 px-1 rounded">[Nome]</code> - será substituído pelo nome do cliente</li>
-                    )}
-                    {validationErrors.cancellationMessage.includes('data') && (
-                      <li>• <code className="bg-red-100 px-1 rounded">[data]</code> - será substituído pela data do agendamento</li>
-                    )}
-                    {validationErrors.cancellationMessage.includes('hora') && (
-                      <li>• <code className="bg-red-100 px-1 rounded">[hora]</code> - será substituído pela hora do agendamento</li>
-                    )}
-                  </ul>
+              <div>
+                <Label htmlFor="confirmationMessage" className="font-semibold">
+                  Mensagem de Confirmação
+                </Label>
+                <Textarea
+                  id="confirmationMessage"
+                  value={whatsappMessages.confirmationMessage}
+                  onChange={(e) =>
+                    handleConfirmationMessageChange(e.target.value)
+                  }
+                  placeholder="Digite a mensagem de confirmação... (Obrigatório incluir: [Nome-cliente], [data] e [hora])"
+                  className={`mt-2 min-h-[100px] ${
+                    validationErrors.confirmationMessage.length > 0
+                      ? "border-red-500 border-2 focus:border-red-500"
+                      : ""
+                  }`}
+                />
+                <p className="text-sm text-gray-600 mt-2">
+                  Variáveis disponíveis:
+                </p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                    [Nome-cliente]
+                  </span>
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                    [data]
+                  </span>
+                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                    [hora]
+                  </span>
                 </div>
-              )}
-            </div>
+                {validationErrors.confirmationMessage.length > 0 && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-red-700 text-sm font-medium mb-2">
+                      ⚠️ Campos obrigatórios faltando:{" "}
+                      {validationErrors.confirmationMessage.join(", ")}
+                    </p>
+                    <p className="text-red-600 text-xs">
+                      <strong>Como resolver:</strong> Adicione as seguintes
+                      caixas na sua mensagem:
+                    </p>
+                    <ul className="text-red-600 text-xs mt-1 ml-4">
+                      {validationErrors.confirmationMessage.includes(
+                        "Nome-cliente"
+                      ) && (
+                        <li>
+                          •{" "}
+                          <code className="bg-red-100 px-1 rounded">
+                            [Nome-cliente]
+                          </code>{" "}
+                          - será substituído pelo nome do cliente
+                        </li>
+                      )}
+                      {validationErrors.confirmationMessage.includes(
+                        "data"
+                      ) && (
+                        <li>
+                          •{" "}
+                          <code className="bg-red-100 px-1 rounded">
+                            [data]
+                          </code>{" "}
+                          - será substituído pela data do agendamento
+                        </li>
+                      )}
+                      {validationErrors.confirmationMessage.includes(
+                        "hora"
+                      ) && (
+                        <li>
+                          •{" "}
+                          <code className="bg-red-100 px-1 rounded">
+                            [hora]
+                          </code>{" "}
+                          - será substituído pela hora do agendamento
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
 
-            <Button
-              onClick={saveWhatsappMessages}
-              disabled={isLoadingMessages}
-              className="w-full bg-emerald-500 hover:bg-emerald-400"
-            >
-              {isLoadingMessages ? "Salvando..." : "Salvar Mensagens"}
-            </Button>
-          </div>
+              <div>
+                <Label htmlFor="cancellationMessage" className="font-semibold">
+                  Mensagem de Cancelamento
+                </Label>
+                <Textarea
+                  id="cancellationMessage"
+                  value={whatsappMessages.cancellationMessage}
+                  onChange={(e) =>
+                    handleCancellationMessageChange(e.target.value)
+                  }
+                  placeholder="Digite a mensagem de cancelamento... (Obrigatório incluir: [Nome-cliente])"
+                  className={`mt-2 min-h-[100px] ${
+                    validationErrors.cancellationMessage.length > 0
+                      ? "border-red-500 border-2 focus:border-red-500"
+                      : ""
+                  }`}
+                />
+                <p className="text-sm text-gray-600 mt-2">
+                  Variáveis disponíveis:
+                </p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                    [Nome-cliente]
+                  </span>
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                    [data]
+                  </span>
+                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                    [hora]
+                  </span>
+                </div>
+                {validationErrors.cancellationMessage.length > 0 && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-red-700 text-sm font-medium mb-2">
+                      ⚠️ Campos obrigatórios faltando:{" "}
+                      {validationErrors.cancellationMessage.join(", ")}
+                    </p>
+                    <p className="text-red-600 text-xs">
+                      <strong>Como resolver:</strong> Adicione as seguintes
+                      caixas na sua mensagem:
+                    </p>
+                    <ul className="text-red-600 text-xs mt-1 ml-4">
+                      {validationErrors.cancellationMessage.includes(
+                        "Nome-cliente"
+                      ) && (
+                        <li>
+                          •{" "}
+                          <code className="bg-red-100 px-1 rounded">
+                            [Nome-cliente]
+                          </code>{" "}
+                          - será substituído pelo nome do cliente
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={saveWhatsappMessages}
+                disabled={isLoadingMessages}
+                className="w-full bg-emerald-500 hover:bg-emerald-400"
+              >
+                {isLoadingMessages ? "Salvando..." : "Salvar Mensagens"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
