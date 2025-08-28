@@ -112,18 +112,18 @@ export function ProfileContent({ user }: ProfileContentProps) {
           // Se não há dados salvos, usar valores padrão
           setWhatsappMessages({
             confirmationMessage:
-              "Olá, [Nome-cliente]! Seu horário está confirmado para [data] às [hora]. Qualquer imprevisto, é só nos avisar.",
+              "Olá, [Nome-cliente]! Seu horário está confirmado para [data] às [hora] para o serviço [servico] no valor de [valor]. Qualquer imprevisto, é só nos avisar.",
             cancellationMessage:
-              "Olá, [Nome-cliente]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
+              "Olá, [Nome-cliente]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora] para o serviço [servico] no valor de [valor]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
           });
         }
       } catch (error) {
         // Em caso de erro, usar valores padrão
         setWhatsappMessages({
           confirmationMessage:
-            "Olá, [Nome]! Seu horário está confirmado para [data] às [hora]. Qualquer imprevisto, é só nos avisar.",
+            "Olá, [Nome-cliente]! Seu horário está confirmado para [data] às [hora] para o serviço [servico] no valor de [valor]. Qualquer imprevisto, é só nos avisar.",
           cancellationMessage:
-            "Olá, [Nome]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
+            "Olá, [Nome-cliente]. Infelizmente não foi possível confirmar/agendar seu horário para [data] às [hora] para o serviço [servico] no valor de [valor]. Pedimos desculpas pelo transtorno e ficamos à disposição para remarcar em outro dia/horário que seja melhor para você.",
         });
       } finally {
         setIsLoadingMessages(false);
@@ -146,6 +146,14 @@ export function ProfileContent({ user }: ProfileContentProps) {
 
     if (!message.includes("[hora]")) {
       missingFields.push("hora");
+    }
+
+    if (!message.includes("[servico]")) {
+      missingFields.push("servico");
+    }
+
+    if (!message.includes("[valor]")) {
+      missingFields.push("valor");
     }
 
     return missingFields;
@@ -291,6 +299,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
     phone: user.phone,
     status: user.status,
     timeZone: user.timezone,
+    headerColor: user.headerColor,
   });
 
   function generateTimeSlots(): string[] {
@@ -338,6 +347,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
       status: values.status === "active" ? true : false,
       timeZone: values.timeZone,
       times: selectedHours || [],
+      headerColor: values.headerColor,
     });
 
     if (response.error) {
@@ -749,6 +759,78 @@ export function ProfileContent({ user }: ProfileContentProps) {
                                 {zone}
                               </SelectItem>
                             ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="headerColor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold">
+                        Cor do cabeçalho da clínica
+                      </FormLabel>
+                      <FormControl>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecione a cor do cabeçalho" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="bg-emerald-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-emerald-500 rounded"></div>
+                                Verde Esmeralda
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="bg-blue-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                                Azul
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="bg-purple-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-purple-500 rounded"></div>
+                                Roxo
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="bg-pink-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-pink-500 rounded"></div>
+                                Rosa
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="bg-indigo-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-indigo-500 rounded"></div>
+                                Índigo
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="bg-teal-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-teal-500 rounded"></div>
+                                Verde Azulado
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="bg-orange-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                                Laranja
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="bg-red-500">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-red-500 rounded"></div>
+                                Vermelho
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </FormControl>
@@ -1221,19 +1303,168 @@ export function ProfileContent({ user }: ProfileContentProps) {
                       : ""
                   }`}
                 />
-                <p className="text-sm text-gray-600 mt-2">
-                  Variáveis disponíveis:
-                </p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                    [Nome-cliente]
-                  </span>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                    [data]
-                  </span>
-                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
-                    [hora]
-                  </span>
+                <div className="mt-2">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Variáveis disponíveis (clique para inserir):
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText =
+                            textBefore + "[Nome-cliente]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[Nome-cliente]".length,
+                              cursorPos + "[Nome-cliente]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-blue-100 text-blue-800 rounded cursor-pointer hover:bg-blue-200 text-xs"
+                    >
+                      [Nome-cliente]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[data]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[data]".length,
+                              cursorPos + "[data]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-green-100 text-green-800 rounded cursor-pointer hover:bg-green-200 text-xs"
+                    >
+                      [data]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[hora]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[hora]".length,
+                              cursorPos + "[hora]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-purple-100 text-purple-800 rounded cursor-pointer hover:bg-purple-200 text-xs"
+                    >
+                      [hora]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[servico]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[servico]".length,
+                              cursorPos + "[servico]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-orange-100 text-orange-800 rounded cursor-pointer hover:bg-orange-200 text-xs"
+                    >
+                      [servico]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[valor]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[valor]".length,
+                              cursorPos + "[valor]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-red-100 text-red-800 rounded cursor-pointer hover:bg-red-200 text-xs"
+                    >
+                      [valor]
+                    </span>
+                  </div>
                 </div>
                 {validationErrors.confirmationMessage.length > 0 && (
                   <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -1301,19 +1532,168 @@ export function ProfileContent({ user }: ProfileContentProps) {
                       : ""
                   }`}
                 />
-                <p className="text-sm text-gray-600 mt-2">
-                  Variáveis disponíveis:
-                </p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                    [Nome-cliente]
-                  </span>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                    [data]
-                  </span>
-                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
-                    [hora]
-                  </span>
+                <div className="mt-2">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Variáveis disponíveis (clique para inserir):
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText =
+                            textBefore + "[Nome-cliente]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[Nome-cliente]".length,
+                              cursorPos + "[Nome-cliente]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-blue-100 text-blue-800 rounded cursor-pointer hover:bg-blue-200 text-xs"
+                    >
+                      [Nome-cliente]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[data]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[data]".length,
+                              cursorPos + "[data]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-green-100 text-green-800 rounded cursor-pointer hover:bg-green-200 text-xs"
+                    >
+                      [data]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[hora]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[hora]".length,
+                              cursorPos + "[hora]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-purple-100 text-purple-800 rounded cursor-pointer hover:bg-purple-200 text-xs"
+                    >
+                      [hora]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[servico]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[servico]".length,
+                              cursorPos + "[servico]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-orange-100 text-orange-800 rounded cursor-pointer hover:bg-orange-200 text-xs"
+                    >
+                      [servico]
+                    </span>
+                    <span
+                      onClick={() => {
+                        const textarea = document.querySelector(
+                          'textarea[placeholder*="cancelamento"]'
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const textBefore =
+                            whatsappMessages.cancellationMessage.substring(
+                              0,
+                              cursorPos
+                            );
+                          const textAfter =
+                            whatsappMessages.cancellationMessage.substring(
+                              cursorPos
+                            );
+                          const newText = textBefore + "[valor]" + textAfter;
+                          handleCancellationMessageChange(newText);
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(
+                              cursorPos + "[valor]".length,
+                              cursorPos + "[valor]".length
+                            );
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-1 bg-red-100 text-red-800 rounded cursor-pointer hover:bg-red-200 text-xs"
+                    >
+                      [valor]
+                    </span>
+                  </div>
                 </div>
                 {validationErrors.cancellationMessage.length > 0 && (
                   <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">

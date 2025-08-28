@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScheduleTimesLista } from "./schedule-times-list";
 
 type UserWithServiceAndSubscription = Prisma.UserGetPayload<{
   include: {
@@ -39,53 +40,70 @@ interface ScheduleContentProps {
   clinic: UserWithServiceAndSubscription;
 }
 
-interface TimeSlot {
-  time: string,
-  avaliable: boolean;
+export interface TimeSlot {
+  time: string;
+  available: boolean;
 }
 
 export function ScheduleContent({ clinic }: ScheduleContentProps) {
-
   const form = useAppointmentForm();
   const { watch } = form;
 
-  const selectedDate = watch("date")
-  const selectedService = watch("serviceId")
+  const selectedDate = watch("date");
+  const selectedServiceId = watch("serviceId");
   const [selectedTime, setSelectedTime] = useState("");
   const [avaliableTimeSlots, setAvaliableTimeSlots] = useState<TimeSlot[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [blockedTimes, setBlockedTimes] = useState<string[]>([]);
 
-
-  const fetchBlockedTimes = useCallback(async (date: Date): Promise<string[]> => {
-    setLoadingSlots(true)
-    try {
-      const dateString = date.toISOString().split("T")[0]
-      const res = await fetch(`${process.env.NEXTAUTH_URL}/api/schedule/get-appointments?userId=${clinic.id}&date=${dateString}`)
-      return[];
-    } catch (err) {
-      console.log(err)
-      setLoadingSlots(false)
-      return[];
-    }
-  }, [clinic.id])
+  const fetchBlockedTimes = useCallback(
+    async (date: Date): Promise<string[]> => {
+      setLoadingSlots(true);
+      try {
+        const dateString = date.toISOString().split("T")[0];
+        const res = await fetch(
+          `${process.env.NEXTAUTH_URL}/api/schedule/get-appointments?userId=${clinic.id}&date=${dateString}`
+        );
+        const json = await res.json();
+        setLoadingSlots(false);
+        return json; // Rertona array com horários bloqueados do dia e clinica
+      } catch (err) {
+        console.log(err);
+        setLoadingSlots(false);
+        return [];
+      }
+    },
+    [clinic.id]
+  );
 
   useEffect(() => {
-    if(selectedDate) {
+    if (selectedDate) {
       fetchBlockedTimes(selectedDate).then((blocked) => {
-        setBlockedTimes(blocked)
-      })
+        setBlockedTimes(blocked);
+
+        const times = clinic.times || [];
+
+        const finalSlots = times.map((time) => ({
+          time,
+          avaliable: !blockedTimes.includes(time),
+        }));
+
+        setAvaliableTimeSlots(finalSlots);
+      });
     }
-  }, [selectedDate, selectedService, fetchBlockedTimes, clinic.times, selectedTime])
+  }, [
+    selectedDate,
+    selectedServiceId,
+    fetchBlockedTimes,
+    clinic.times,
+    selectedTime,
+  ]);
 
-
-  async function handleRegisterAppointment(formData: AppointmentFormData) {
-    
-  }
+  async function handleRegisterAppointment(formData: AppointmentFormData) {}
 
   return (
     <div className="min-h-screen flex flex-col">
-      <div className="h-32 bg-emerald-500"></div>
+      <div className={`h-32 ${clinic.headerColor || "bg-emerald-500"}`}></div>
 
       <section className="mx-auto px-4 -mt-16">
         <div className="max-w-2xl mx-auto">
@@ -112,8 +130,9 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
 
       <section className="max-w-2xl mx-auto w-full mt-6">
         <Form {...form}>
-          <form className="mx-2 space-y-6 bg-white p-6 border rounded-md shadow-sm" 
-          onSubmit={form.handleSubmit(handleRegisterAppointment)}
+          <form
+            className="mx-2 space-y-6 bg-white p-6 border rounded-md shadow-sm"
+            onSubmit={form.handleSubmit(handleRegisterAppointment)}
           >
             <FormField
               control={form.control}
@@ -223,19 +242,52 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
               )}
             />
 
+            {selectedServiceId && (
+              <div className="space-y-2">
+                <Label>Horários Disponíveis</Label>
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  {loadingSlots ? (
+                    <p>Carregando horários...</p>
+                  ) : avaliableTimeSlots.length === 0 ? (
+                    <p>Nenhum horário disponível nesse dia.</p>
+                  ) : (
+                    <ScheduleTimesLista
+                      selectedDate={selectedDate}
+                      selectedTime={selectedTime}
+                      requiredSlots={
+                        clinic.services.find(
+                          (service) => service.id === selectedServiceId
+                        )
+                          ? Math.ceil(
+                              clinic.services.find(
+                                (service) => service.id === selectedServiceId
+                              )!.duration / 30
+                            )
+                          : 1
+                      }
+                      onSelectTime={(time) => setSelectedTime(time)}
+                      blockedTimes={blockedTimes}
+                      availableTimeSlots={avaliableTimeSlots}
+                      clinicTimes={clinic.times}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
             {clinic.status ? (
-              <Button 
-            type="submit" 
-            className="w-full bg-emerald-500 hover:bg-emerald-400" 
-            disabled={!watch('date') || !watch('name') || !watch('phone')}>
-              Realizar Agendamento
-            </Button>
+              <Button
+                type="submit"
+                className="w-full bg-emerald-500 hover:bg-emerald-400"
+                disabled={!watch("date") || !watch("name") || !watch("phone")}
+              >
+                Realizar Agendamento
+              </Button>
             ) : (
               <p className="bg-red-500 text-white text-center px-4 py-2 rounded-md">
                 A Cliníca esta fechada no momento.
               </p>
             )}
-
           </form>
         </Form>
       </section>

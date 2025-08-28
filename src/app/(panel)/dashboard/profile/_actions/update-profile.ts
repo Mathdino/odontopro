@@ -1,39 +1,39 @@
-"use server"
+"use server";
 
-import { auth } from "@/lib/auth"
-import prisma from "@/lib/prisma"
-import { revalidatePath } from "next/cache"
-import z from "zod"
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import z from "zod";
 
 const formSchema = z.object({
-  name: z.string().min(1, {message: "O Nome é Obrigatório"}),
+  name: z.string().min(1, { message: "O Nome é Obrigatório" }),
   address: z.string().optional(),
   phone: z.string().optional(),
   status: z.boolean(),
   timeZone: z.string(),
   times: z.array(z.string()),
-})
+  headerColor: z.string(),
+});
 
-type FormSchema = z.infer<typeof formSchema>
+type FormSchema = z.infer<typeof formSchema>;
 
 export async function updateProfile(formData: FormSchema) {
-
   const session = await auth();
 
   if (!session?.user?.id) {
     return {
       error: "Usuário não autenticado",
-    }
+    };
   }
-  const schema = formSchema.safeParse(formData)
+  const schema = formSchema.safeParse(formData);
 
   if (!schema.success) {
     return {
       error: "Preencha todos os campos",
-    }
+    };
   }
 
-  try{
+  try {
     await prisma.user.update({
       where: {
         id: session?.user?.id,
@@ -45,19 +45,18 @@ export async function updateProfile(formData: FormSchema) {
         status: formData.status,
         timezone: formData.timeZone,
         times: formData.times || [],
-      }
-    })
+        headerColor: formData.headerColor,
+      },
+    });
 
-    revalidatePath("/dashboard/profile")
+    revalidatePath("/dashboard/profile");
 
     return {
-      data: "Clinica atualizada com sucesso!"
-    }
-
+      data: "Clinica atualizada com sucesso!",
+    };
   } catch (error) {
     return {
       error: "Falha ao atualizar clinica",
-    }
+    };
   }
 }
-

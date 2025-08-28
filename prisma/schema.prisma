@@ -104,6 +104,7 @@ model User {
   status             Boolean         @default(true)
   times              String[]        @default([])             
   timezone           String?
+  headerColor        String?         @default("bg-emerald-500")
   stripe_customer_id String?
   subscription       Subscription?
   services           Service[]
