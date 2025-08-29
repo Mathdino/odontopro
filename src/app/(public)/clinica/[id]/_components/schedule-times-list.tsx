@@ -39,6 +39,10 @@ export function ScheduleTimesLista({
   return (
     <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
       {availableTimeSlots.map((slot) => {
+        /**
+         * Verifica se o slot está disponível, se a sequência de slots é válida
+         * e se o slot não está no passado.
+         */
         const sequenceOk = isSlotSequenceAvailable(
           slot.time,
           requiredSlots,

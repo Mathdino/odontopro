@@ -196,7 +196,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                   <FormControl>
                     <Input
                       id="name"
-                      placeholder="Digite seu nome completo..."
+                      placeholder="Digite seu nome completo"
                       {...field}
                     />
                   </FormControl>
@@ -214,7 +214,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                   <FormControl>
                     <Input
                       id="email"
-                      placeholder="Digite seu e-mail..."
+                      placeholder="Digite seu e-mail"
                       {...field}
                     />
                   </FormControl>
@@ -260,6 +260,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                       initialDate={new Date()}
                       onChange={(date) => {
                         field.onChange(date);
+                        setSelectedTime("");
                       }}
                     />
                   </FormControl>
@@ -277,7 +278,12 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                     Selecione o Serviço
                   </FormLabel>
                   <FormControl>
-                    <Select onValueChange={field.onChange}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setSelectedTime("");
+                      }}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione o serviço..." />
                       </SelectTrigger>

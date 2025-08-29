@@ -41,7 +41,7 @@ export function isSlotSequenceAvailable(
   const startIndex = allSlots.indexOf(slotStart);
   if (startIndex === -1 || startIndex + requiredSlots > allSlots.length) {
     return false;
-  }
+  } //Se quiser poder deixar os agendamentos ultrapassarem o ultimo horário , comente: || startIndex + requiredSlots > allSlots.length
 
   for (let i = startIndex; i < startIndex + requiredSlots; i++) {
     const slotTime = allSlots[i];
