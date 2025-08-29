@@ -68,7 +68,9 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
         );
         const json = await res.json();
         setLoadingSlots(false);
-        return json; // Rertona array com horários bloqueados do dia e clinica
+
+        // Corrigido: extrair blockedTimes do objeto retornado
+        return json.blockedTimes || [];
       } catch (err) {
         console.log(err);
         setLoadingSlots(false);
@@ -91,6 +93,15 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
         }));
 
         setAvaliableTimeSlots(finalSlots);
+
+        //Veriifcar se o slot atual esta disponivel
+        const stillAvailable = finalSlots.find(
+          (slot) => slot.time === selectedTime && slot.avaliable
+        );
+
+        if (!stillAvailable) {
+          setSelectedTime("");
+        }
       });
     }
   }, [
@@ -123,6 +134,19 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     toast.success("Agendamento realizado com sucesso!");
     form.reset();
     setSelectedTime("");
+
+    // Adicionar: atualizar lista de horários bloqueados
+    if (selectedDate) {
+      fetchBlockedTimes(selectedDate).then((blocked) => {
+        setBlockedTimes(blocked);
+        const times = clinic.times || [];
+        const finalSlots = times.map((time) => ({
+          time,
+          avaliable: !blocked.includes(time),
+        }));
+        setAvaliableTimeSlots(finalSlots);
+      });
+    }
   }
 
   return (

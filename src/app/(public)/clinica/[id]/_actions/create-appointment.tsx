@@ -20,18 +20,68 @@ export async function createNewAppointment(formData: FormSchema) {
 
   if (!schema.success) {
     return {
-      errors: schema.error.issues[0].message,
+      error: schema.error.issues[0].message, // Corrigido: 'error' ao invés de 'errors'
     };
   }
 
   try {
-    const selectedDate = new Date(formData.date);
+    // Verificar se o serviço existe e está ativo
+    const service = await prisma.service.findFirst({
+      where: {
+        id: formData.serviceId,
+        status: true,
+      },
+    });
 
+    if (!service) {
+      return {
+        error: "Serviço não encontrado ou inativo",
+      };
+    }
+
+    // Verificar se a clínica existe e está ativa
+    const clinic = await prisma.user.findFirst({
+      where: {
+        id: formData.clinicId,
+        status: true,
+      },
+    });
+
+    if (!clinic) {
+      return {
+        error: "Clínica não encontrada ou inativa",
+      };
+    }
+
+    const selectedDate = new Date(formData.date);
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();
     const day = selectedDate.getDate();
-
     const appointmentDate = new Date(year, month, day, 0, 0, 0, 0);
+
+    // Verificar se já existe agendamento no mesmo horário
+    const existingAppointment = await prisma.appointment.findFirst({
+      where: {
+        userId: formData.clinicId,
+        appointmentDate: appointmentDate,
+        time: formData.time,
+      },
+    });
+
+    if (existingAppointment) {
+      return {
+        error: "Este horário já está ocupado",
+      };
+    }
+
+    // Verificar se a data não é no passado
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (appointmentDate < today) {
+      return {
+        error: "Não é possível agendar para datas passadas",
+      };
+    }
 
     const newAppointment = await prisma.appointment.create({
       data: {
@@ -49,8 +99,27 @@ export async function createNewAppointment(formData: FormSchema) {
       data: newAppointment,
     };
   } catch (err) {
+    console.error("Erro ao criar agendamento:", err);
+
+    // Tratamento específico para diferentes tipos de erro
+    if (err instanceof Error) {
+      // Erro de violação de constraint do banco
+      if (err.message.includes("Unique constraint")) {
+        return {
+          error: "Já existe um agendamento para este horário",
+        };
+      }
+
+      // Erro de foreign key
+      if (err.message.includes("Foreign key constraint")) {
+        return {
+          error: "Dados inválidos fornecidos",
+        };
+      }
+    }
+
     return {
-      errors: "Erro ao cadastrar agendamento",
+      error: "Erro interno do servidor. Tente novamente mais tarde.",
     };
   }
 }
