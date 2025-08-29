@@ -73,7 +73,8 @@ export function ScheduleTimesLista({
               "h-10 select-none",
               selectedTime === slot.time &&
                 "border-2 bg-emerald-200 text-primary border-emerald-500",
-              isSlotDisabled && "opacity-50 cursor-not-allowed"
+              isSlotDisabled &&
+                "opacity-50 cursor-not-allowed border-red-500 bg-red-100"
             )}
             disabled={isSlotDisabled}
           >
