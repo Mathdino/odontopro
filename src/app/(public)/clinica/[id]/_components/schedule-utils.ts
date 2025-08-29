@@ -28,3 +28,29 @@ export function isToday(date: Date) {
     date.getFullYear() === now.getFullYear()
   );
 }
+
+/**
+ * Verificar se o slot está bloqueado
+ */
+export function isSlotSequenceAvailable(
+  slotStart: string, // Primeiro horario disponivel
+  requiredSlots: number, // Quantidade de slots necessarios
+  allSlots: string[], // Todos os slots disponiveis
+  blockedSlots: string[] // Todos os slots bloqueados
+) {
+  const startIndex = allSlots.indexOf(slotStart);
+  if (startIndex === -1 || startIndex + requiredSlots > allSlots.length) {
+    return false;
+  }
+
+  for (let i = startIndex; i < startIndex + requiredSlots; i++) {
+    const slotTime = allSlots[i];
+
+    //Verificar se o slot está bloqueado
+    if (blockedSlots.includes(slotTime)) {
+      return false;
+    }
+  }
+
+  return true;
+}

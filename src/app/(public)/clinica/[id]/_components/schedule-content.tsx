@@ -64,7 +64,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
       try {
         const dateString = date.toISOString().split("T")[0];
         const res = await fetch(
-          `${process.env.NEXTAUTH_URL}/api/schedule/get-appointments?userId=${clinic.id}&date=${dateString}`
+          `/api/schedule/get-appointments?userId=${clinic.id}&date=${dateString}`
         );
         const json = await res.json();
         setLoadingSlots(false);
@@ -83,20 +83,25 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
   useEffect(() => {
     if (selectedDate) {
       fetchBlockedTimes(selectedDate).then((blocked) => {
+        console.log("=== FETCH BLOCKED TIMES ===");
+        console.log("API retornou blocked:", blocked);
+
         setBlockedTimes(blocked);
 
         const times = clinic.times || [];
+        console.log("clinic.times:", times);
 
         const finalSlots = times.map((time) => ({
           time,
-          avaliable: !blockedTimes.includes(time),
+          available: !blocked.includes(time),
         }));
 
+        console.log("finalSlots criados:", finalSlots);
         setAvaliableTimeSlots(finalSlots);
 
         //Veriifcar se o slot atual esta disponivel
         const stillAvailable = finalSlots.find(
-          (slot) => slot.time === selectedTime && slot.avaliable
+          (slot) => slot.time === selectedTime && slot.available
         );
 
         if (!stillAvailable) {
@@ -142,7 +147,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
         const times = clinic.times || [];
         const finalSlots = times.map((time) => ({
           time,
-          avaliable: !blocked.includes(time),
+          available: !blocked.includes(time),
         }));
         setAvaliableTimeSlots(finalSlots);
       });
