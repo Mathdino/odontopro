@@ -11,12 +11,14 @@ interface UseProfileFormProps {
   status: boolean;
   timeZone: string | null;
   headerColor: string | null;
+  pix: string | null;
 }
 
 const profileSchema = z.object({
   name: z.string().min(1, { message: "O Nome é Obrigatório" }),
   address: z.string().optional(),
   phone: z.string().optional(),
+  pix: z.string().optional(),
   status: z.string(),
   timeZone: z.string().min(1, { message: "O Fuso Horário é Obrigatório" }),
   headerColor: z
@@ -33,6 +35,7 @@ export function useProfileForm({
   status,
   timeZone,
   headerColor,
+  pix,
 }: UseProfileFormProps) {
   return useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -40,6 +43,7 @@ export function useProfileForm({
       name: name || "",
       address: address || "",
       phone: phone || "",
+      pix: pix || "",
       status: status ? "active" : "inactive",
       timeZone: timeZone || "",
       headerColor: headerColor || "bg-emerald-500",

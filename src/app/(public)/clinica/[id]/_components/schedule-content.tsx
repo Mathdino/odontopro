@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import imgTest from "../../../../../../public/foto1.png";
@@ -12,6 +12,7 @@ import {
   Star,
   ChevronRight,
   Copy,
+  Banknote,
 } from "lucide-react";
 import { Prisma } from "../../../../../generated/prisma";
 import { useAppointmentForm, AppointmentFormData } from "./schedule-form";
@@ -39,10 +40,27 @@ import {
 import { ScheduleTimesLista } from "./schedule-times-list";
 import { createNewAppointment } from "../_actions/create-appointment";
 import { toast, ToastT } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  formatCurrency,
+  formatCurrencyWithSmallCents,
+} from "@/utils/formatCurrency";
+import { getServiceImageUrl } from "@/utils/getServiceImage";
 
 type UserWithServiceAndSubscription = Prisma.UserGetPayload<{
   include: {
-    services: true;
+    services: {
+      include: {
+        category: true;
+      };
+    };
     subscription: true;
   };
 }>;
@@ -56,6 +74,21 @@ export interface TimeSlot {
   available: boolean;
 }
 
+// Tipo para Service com Category
+type ServiceWithCategory = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  duration: number;
+  image: string | null;
+  category: {
+    id: string;
+    name: string;
+    order: number;
+  } | null;
+};
+
 export function ScheduleContent({ clinic }: ScheduleContentProps) {
   const form = useAppointmentForm();
   const { watch } = form;
@@ -68,6 +101,41 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [blockedTimes, setBlockedTimes] = useState<string[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedService, setSelectedService] =
+    useState<ServiceWithCategory | null>(null);
+
+  // Agrupar serviços por categoria
+  const servicesByCategory = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        category: { id: string; name: string; order: number } | null;
+        services: ServiceWithCategory[];
+      }
+    >();
+
+    clinic.services.forEach((service) => {
+      const categoryKey = service.category?.id || "no-category";
+
+      if (!grouped.has(categoryKey)) {
+        grouped.set(categoryKey, {
+          category: service.category,
+          services: [],
+        });
+      }
+
+      grouped.get(categoryKey)!.services.push(service as ServiceWithCategory);
+    });
+
+    // Converter para array e ordenar por ordem da categoria
+    return Array.from(grouped.values()).sort((a, b) => {
+      if (!a.category && !b.category) return 0;
+      if (!a.category) return 1;
+      if (!b.category) return -1;
+      return a.category.order - b.category.order;
+    });
+  }, [clinic.services]);
 
   const fetchBlockedTimes = useCallback(
     async (date: Date): Promise<string[]> => {
@@ -150,6 +218,8 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     toast.success("Agendamento realizado com sucesso!");
     form.reset();
     setSelectedTime("");
+    setIsModalOpen(false);
+    setSelectedService(null);
 
     // Adicionar: atualizar lista de horários bloqueados
     if (selectedDate) {
@@ -179,12 +249,46 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     }
   };
 
+  const handleCopyPix = async () => {
+    const pix = clinic.pix || "PIX não informado";
+    try {
+      await navigator.clipboard.writeText(pix);
+      toast.success("PIX copiado para a área de transferência!");
+    } catch (err) {
+      toast.error("Erro ao copiar PIX");
+    }
+  };
+
   const handleToggleFavorite = () => {
     setIsFavorite(!isFavorite);
     toast.success(
       isFavorite ? "Removido dos favoritos" : "Adicionado aos favoritos"
     );
   };
+
+  const handleScheduleService = (service: ServiceWithCategory) => {
+    setSelectedService(service);
+    form.setValue("serviceId", service.id);
+    form.setValue("date", new Date());
+    setSelectedTime("");
+    setIsModalOpen(true);
+  };
+
+  // Função para formatar duração em minutos para horas e minutos
+  function formatDuration(minutes: number): string {
+    if (minutes < 60) {
+      return `${minutes}min`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (remainingMinutes === 0) {
+      return `${hours}h`;
+    }
+
+    return `${hours}h ${remainingMinutes}min`;
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -261,180 +365,329 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                   <Copy className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors" />
                 </button>
               </div>
+
+              {/* Linha divisória */}
+              <div className="w-full h-px bg-gray-200 mb-4"></div>
+
+              {/* PIX da Clínica */}
+              {clinic.pix && (
+                <div className="flex items-center justify-between mb-2 w-full">
+                  <div className="flex items-center gap-1">
+                    <Banknote className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">
+                      PIX: {clinic.pix}
+                    </span>
+                  </div>
+                  <button onClick={handleCopyPix}>
+                    <Copy className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors" />
+                  </button>
+                </div>
+              )}
             </article>
           </div>
         </div>
       </section>
 
-      <section className="max-w-2xl mx-auto w-full mt-6">
-        <Form {...form}>
-          <form
-            className="mx-2 space-y-6 bg-white p-6 border rounded-md shadow-sm"
-            onSubmit={form.handleSubmit(handleRegisterAppointment)}
-          >
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem className="my-2">
-                  <FormLabel className="font-semibold">Nome Completo</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="name"
-                      placeholder="Digite seu nome completo"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+      {/* Seção de Serviços */}
+      <section className="max-w-2xl mx-auto w-full mt-6 px-4">
+        <div className="bg-white rounded-lg p-6">
+          {servicesByCategory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhum serviço disponível
+            </div>
+          ) : (
+            <div className="space-y-12">
+              {servicesByCategory.map((group, groupIndex) => (
+                <div key={group.category?.id || "no-category"}>
+                  {/* Nome da Categoria com linha */}
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold mb-1">
+                      {group.category?.name || "Sem Categoria"}
+                    </h3>
+                    <div className="w-full h-px bg-gray-200"></div>
+                  </div>
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem className="my-2">
-                  <FormLabel className="font-semibold">E-mail</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="email"
-                      placeholder="Digite seu e-mail"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  {/* Lista de Serviços da Categoria */}
+                  <div className="space-y-0">
+                    {group.services.map((service, serviceIndex) => (
+                      <div key={service.id}>
+                        {/* Div do serviço */}
+                        <div className="flex items-start gap-4 py-4">
+                          {/* Lado esquerdo - Foto do serviço */}
+                          <div className="w-25 h-25 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <Image
+                              src={getServiceImageUrl(service.image)}
+                              alt={`Imagem do serviço ${service.name}`}
+                              width={100}
+                              height={100}
+                              className="object-cover"
+                            />
+                          </div>
 
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem className="my-2">
-                  <FormLabel className="font-semibold">Telefone</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      onChange={(e) => {
-                        const formatvalue = formatPhone(e.target.value);
-                        field.onChange(formatvalue);
-                      }}
-                      id="phone"
-                      placeholder="(xx) xxxxx-xxxx"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                          {/* Lado direito - Conteúdo */}
+                          <div className="flex-1">
+                            {/* Nome do serviço */}
+                            <h4 className="font-semibold text-lg text-gray-900 mb-2">
+                              {service.name}
+                            </h4>
 
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-2 space-y-1">
-                  <FormLabel className="font-semibold">
-                    Data do agendamento:
-                  </FormLabel>
-                  <FormControl>
-                    <DatePickerComponent
-                      minDate={new Date()}
-                      className="w-full rounded border p-2"
-                      initialDate={new Date()}
-                      onChange={(date) => {
-                        field.onChange(date);
-                        setSelectedTime("");
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                            {/* Descrição */}
+                            <p className="text-sm text-gray-600">
+                              {service.description || "Descrição do serviço"}
+                            </p>
 
-            <FormField
-              control={form.control}
-              name="serviceId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">
-                    Selecione o Serviço
-                  </FormLabel>
-                  <FormControl>
-                    <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        setSelectedTime("");
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione o serviço..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clinic.services.map((service) => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                            {/* Duração */}
+                            <p className="text-sm text-gray-500">
+                              Duração: {service.duration} minutos
+                            </p>
 
-            {selectedServiceId && (
-              <div className="space-y-2">
-                <Label>Horários Disponíveis</Label>
-                <div className="bg-gray-100 p-4 rounded-lg">
-                  {loadingSlots ? (
-                    <p>Carregando horários...</p>
-                  ) : avaliableTimeSlots.length === 0 ? (
-                    <p>Nenhum horário disponível nesse dia.</p>
-                  ) : (
-                    <ScheduleTimesLista
-                      selectedDate={selectedDate}
-                      selectedTime={selectedTime}
-                      requiredSlots={
-                        clinic.services.find(
-                          (service) => service.id === selectedServiceId
-                        )
-                          ? Math.ceil(
-                              clinic.services.find(
-                                (service) => service.id === selectedServiceId
-                              )!.duration / 30
-                            )
-                          : 1
-                      }
-                      onSelectTime={(time) => setSelectedTime(time)}
-                      blockedTimes={blockedTimes}
-                      availableTimeSlots={avaliableTimeSlots}
-                      clinicTimes={clinic.times}
-                    />
-                  )}
+                            {/* Div com space-between: preço e botão */}
+                            <div className="flex items-center justify-between">
+                              {/* Preço em destaque */}
+                              <div className="text-lg font-bold text-emerald-600">
+                                {(() => {
+                                  const price = formatCurrencyWithSmallCents(
+                                    service.price / 100
+                                  );
+                                  return (
+                                    <span>
+                                      {price.main}
+                                      <span className="text-sm">
+                                        ,{price.cents}
+                                      </span>
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+
+                              {/* Botão agendar */}
+                              <Button
+                                onClick={() => handleScheduleService(service)}
+                                className="bg-emerald-600 text-white hover:bg-emerald-700 px-6 py-2 rounded-full"
+                                disabled={!clinic.status}
+                              >
+                                Agendar
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Linha inferior */}
+                        <div className="w-full h-px bg-gray-100"></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+          )}
 
-            {clinic.status ? (
-              <Button
-                type="submit"
-                className="w-full bg-emerald-500 hover:bg-emerald-400"
-                disabled={!watch("date") || !watch("name") || !watch("phone")}
-              >
-                Realizar Agendamento
-              </Button>
-            ) : (
+          {!clinic.status && (
+            <div className="mt-6">
               <p className="bg-red-500 text-white text-center px-4 py-2 rounded-md">
-                A Cliníca esta fechada no momento.
+                A Clínica está fechada no momento.
               </p>
-            )}
-          </form>
-        </Form>
+            </div>
+          )}
+        </div>
       </section>
+
+      {/* Modal de Agendamento */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Agendar Serviço</DialogTitle>
+            <DialogDescription>
+              {selectedService && (
+                <div className="flex items-center gap-4 mt-3 p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl border-2 border-emerald-200 shadow-sm">
+                  <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-md">
+                    <Image
+                      src={getServiceImageUrl(selectedService.image)}
+                      alt={`Imagem do serviço ${selectedService.name}`}
+                      width={64}
+                      height={64}
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <span className="font-bold text-lg text-emerald-900 mb-1">
+                      {selectedService.name}
+                    </span>
+                    <div className="flex items-center gap-3 text-emerald-700">
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-semibold">
+                          {formatCurrency(selectedService.price / 100)}
+                        </span>
+                      </div>
+                      <span className="text-emerald-400">•</span>
+                      <span className="font-medium">
+                        {formatDuration(selectedService.duration)}
+                      </span>
+                    </div>
+                    {selectedService.description && (
+                      <p className="text-sm text-emerald-600 italic">
+                        {selectedService.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form
+              className="space-y-6"
+              onSubmit={form.handleSubmit(handleRegisterAppointment)}
+            >
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="my-2">
+                    <FormLabel className="font-semibold">
+                      Nome Completo
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        id="name"
+                        placeholder="Digite seu nome completo"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem className="my-2">
+                    <FormLabel className="font-semibold">E-mail</FormLabel>
+                    <FormControl>
+                      <Input
+                        id="email"
+                        placeholder="Digite seu e-mail"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem className="my-2">
+                    <FormLabel className="font-semibold">Telefone</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        onChange={(e) => {
+                          const formatvalue = formatPhone(e.target.value);
+                          field.onChange(formatvalue);
+                        }}
+                        id="phone"
+                        placeholder="(xx) xxxxx-xxxx"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2 space-y-1">
+                    <FormLabel className="font-semibold">
+                      Data do agendamento:
+                    </FormLabel>
+                    <FormControl>
+                      <DatePickerComponent
+                        minDate={new Date()}
+                        className="w-full rounded border p-2"
+                        initialDate={new Date()}
+                        onChange={(date) => {
+                          field.onChange(date);
+                          setSelectedTime("");
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {selectedServiceId && (
+                <div className="space-y-2">
+                  <Label>Horários Disponíveis</Label>
+                  <div className="bg-gray-100 p-4 rounded-lg">
+                    {loadingSlots ? (
+                      <p>Carregando horários...</p>
+                    ) : avaliableTimeSlots.length === 0 ? (
+                      <p>Nenhum horário disponível nesse dia.</p>
+                    ) : (
+                      <ScheduleTimesLista
+                        selectedDate={selectedDate}
+                        selectedTime={selectedTime}
+                        requiredSlots={
+                          clinic.services.find(
+                            (service) => service.id === selectedServiceId
+                          )
+                            ? Math.ceil(
+                                clinic.services.find(
+                                  (service) => service.id === selectedServiceId
+                                )!.duration / 30
+                              )
+                            : 1
+                        }
+                        onSelectTime={(time) => setSelectedTime(time)}
+                        blockedTimes={blockedTimes}
+                        availableTimeSlots={avaliableTimeSlots}
+                        clinicTimes={clinic.times}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setSelectedService(null);
+                    form.reset();
+                    setSelectedTime("");
+                  }}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400"
+                  disabled={
+                    !watch("date") ||
+                    !watch("name") ||
+                    !watch("phone") ||
+                    !selectedTime
+                  }
+                >
+                  Confirmar Agendamento
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

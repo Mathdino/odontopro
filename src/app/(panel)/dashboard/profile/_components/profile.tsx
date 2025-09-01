@@ -300,6 +300,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
     status: user.status,
     timeZone: user.timezone,
     headerColor: user.headerColor,
+    pix: user.pix,
   });
 
   function generateTimeSlots(): string[] {
@@ -344,6 +345,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
       name: values.name,
       address: values.address,
       phone: values.phone,
+      pix: values.pix,
       status: values.status === "active" ? true : false,
       timeZone: values.timeZone,
       times: selectedHours || [],
@@ -642,6 +644,25 @@ export function ProfileContent({ user }: ProfileContentProps) {
                           onChange={(e) =>
                             field.onChange(formatPhone(e.target.value))
                           }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="pix"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold">
+                        PIX da Clínica
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Digite a chave PIX da clínica..."
                         />
                       </FormControl>
                       <FormMessage />
