@@ -1,26 +1,49 @@
 //Backend
 
 import prisma from "@/lib/prisma";
-import { ok } from "assert";
 import { NextRequest, NextResponse } from "next/server";
 
 //Buscar agendamentos em uma data específica
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const userId = searchParams.get("userId");
-  const dateParam = searchParams.get("date");
-
-  console.log("=== API GET APPOINTMENTS DEBUG ===");
-  console.log("userId:", userId);
-  console.log("dateParam:", dateParam);
-
-  if (!userId || userId === "null" || !dateParam || dateParam === "null") {
-    return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
-  }
   try {
-    const [year, mounth, day] = dateParam.split("-").map(Number);
-    const startDate = new Date(year, mounth - 1, day, 0, 0, 0);
-    const endDate = new Date(year, mounth - 1, day, 23, 59, 59, 999);
+    // Forma mais segura de obter os parâmetros
+    const url = new URL(request.url);
+    const userId = url.searchParams.get("userId");
+    const dateParam = url.searchParams.get("date");
+
+    console.log("=== API GET APPOINTMENTS DEBUG ===");
+    console.log("userId:", userId);
+    console.log("dateParam:", dateParam);
+
+    if (!userId || userId === "null" || !dateParam || dateParam === "null") {
+      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
+    }
+
+    // Validar formato da data
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return NextResponse.json(
+        { error: "Formato de data inválido" },
+        { status: 400 }
+      );
+    }
+
+    const [year, month, day] = dateParam.split("-").map(Number);
+
+    // Validar se a data é válida
+    if (
+      isNaN(year) ||
+      isNaN(month) ||
+      isNaN(day) ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 31
+    ) {
+      return NextResponse.json({ error: "Data inválida" }, { status: 400 });
+    }
+
+    const startDate = new Date(year, month - 1, day, 0, 0, 0);
+    const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     console.log("Período de busca:");
     console.log("startDate:", startDate);
@@ -36,7 +59,7 @@ export async function GET(request: NextRequest) {
       console.log("Usuário não encontrado!");
       return NextResponse.json(
         { error: "Usuário não encontrado" },
-        { status: 400 }
+        { status: 404 }
       );
     }
 
@@ -101,6 +124,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("Erro na API:", err);
-    return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
+      { status: 500 }
+    );
   }
 }

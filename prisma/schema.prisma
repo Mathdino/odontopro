@@ -32,16 +32,31 @@ model Reminder {
   user        User     @relation(fields: [userId], references: [id])
 }
 
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  order     Int       @default(0)
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  services  Service[]
+  user      User      @relation(fields: [userId], references: [id])
+}
+
 model Service {
   id           String        @id @default(uuid())
   name         String
+  description  String?       @default("")
+  image        String?       @default("img-generic.png")
   price        Int
   duration     Int
   status       Boolean       @default(true)
+  categoryId   String
   userId       String
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
+  category     Category      @relation(fields: [categoryId], references: [id])
   user         User          @relation(fields: [userId], references: [id])
 }
 
@@ -100,6 +115,7 @@ model User {
   accounts           Account[]
   appointments       Appointment[]
   Authenticator      Authenticator[]
+  categories         Category[]
   professionals      Professional[]
   reminders          Reminder[]
   services           Service[]
