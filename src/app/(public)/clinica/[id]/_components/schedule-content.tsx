@@ -2,8 +2,17 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import imgTest from "../../../../../../public/foto1.png";
-import { MapPin } from "lucide-react";
+import {
+  MapPin,
+  ChevronLeft,
+  Heart,
+  Search,
+  Star,
+  ChevronRight,
+  Copy,
+} from "lucide-react";
 import { Prisma } from "../../../../../generated/prisma";
 import { useAppointmentForm, AppointmentFormData } from "./schedule-form";
 import {
@@ -50,6 +59,7 @@ export interface TimeSlot {
 export function ScheduleContent({ clinic }: ScheduleContentProps) {
   const form = useAppointmentForm();
   const { watch } = form;
+  const router = useRouter();
 
   const selectedDate = watch("date");
   const selectedServiceId = watch("serviceId");
@@ -57,6 +67,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
   const [avaliableTimeSlots, setAvaliableTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [blockedTimes, setBlockedTimes] = useState<string[]>([]);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const fetchBlockedTimes = useCallback(
     async (date: Date): Promise<string[]> => {
@@ -154,30 +165,104 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     }
   }
 
+  const handleGoHome = () => {
+    router.push("/");
+  };
+
+  const handleCopyAddress = async () => {
+    const address = clinic.address || "Endereço não informado";
+    try {
+      await navigator.clipboard.writeText(address);
+      toast.success("Endereço copiado para a área de transferência!");
+    } catch (err) {
+      toast.error("Erro ao copiar endereço");
+    }
+  };
+
+  const handleToggleFavorite = () => {
+    setIsFavorite(!isFavorite);
+    toast.success(
+      isFavorite ? "Removido dos favoritos" : "Adicionado aos favoritos"
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
-      <div className={`h-32 ${clinic.headerColor || "bg-emerald-500"}`}></div>
-
-      <section className="mx-auto px-4 -mt-16">
-        <div className="max-w-2xl mx-auto">
-          <article className="flex flex-col items-center">
-            <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-white mb-5">
-              <Image
-                src={clinic.image ? clinic.image : imgTest}
-                alt="Foto de perfil"
-                className="object-cover bg-white"
-                fill
+      <div className={`h-32 ${clinic.headerColor || "bg-emerald-500"}`}>
+        {/* Header com ícones */}
+        <div className="flex justify-between items-center p-4 pt-8">
+          <button
+            onClick={handleGoHome}
+            className="w-9 h-9 rounded-full bg-black bg-opacity-80 flex items-center justify-center"
+          >
+            <ChevronLeft className="w-5 h-5 text-white" />
+          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleToggleFavorite}
+              className="w-9 h-9 rounded-full bg-black bg-opacity-80 flex items-center justify-center"
+            >
+              <Heart
+                className={`w-5 h-5 text-white ${
+                  isFavorite ? "fill-white" : ""
+                }`}
               />
-            </div>
+            </button>
+          </div>
+        </div>
+      </div>
 
-            <h1 className="text-2xl font-bold mb-2">{clinic.name}</h1>
-            <div className="flex items-center gap-1">
-              <MapPin className="w-5 h-5" />
-              <span>
-                {clinic.address ? clinic.address : "Endereço não informado"}
-              </span>
-            </div>
-          </article>
+      <section className="md:mx-auto px-4 -mt-8">
+        <div className="w-full">
+          {/* Card principal */}
+          <div className="bg-white rounded-lg shadow-lg p-6 pt-2">
+            <article className="flex flex-col items-center">
+              {/* Imagem circular da clínica */}
+              <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white mb-6 -mt-12">
+                <Image
+                  src={clinic.image ? clinic.image : imgTest}
+                  alt="Foto de perfil"
+                  className="object-cover bg-white"
+                  fill
+                />
+              </div>
+
+              {/* Nome da clínica */}
+              <h1 className="text-xl font-bold mb-4 text-left w-full">
+                {clinic.name}
+              </h1>
+
+              {/* Linha divisória */}
+              <div className="w-full h-px bg-gray-200 mb-4"></div>
+
+              {/* Avaliações */}
+              <div className="flex items-center justify-between mb-4 w-full">
+                <div className="flex items-center gap-1">
+                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <span className="text-sm text-gray-600">
+                    4,8 (total de avaliações)
+                  </span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </div>
+
+              {/* Linha divisória */}
+              <div className="w-full h-px bg-gray-200 mb-4"></div>
+
+              {/* Endereço */}
+              <div className="flex items-center justify-between mb-2 w-full">
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">
+                    {clinic.address ? clinic.address : "Endereço não informado"}
+                  </span>
+                </div>
+                <button onClick={handleCopyAddress}>
+                  <Copy className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors" />
+                </button>
+              </div>
+            </article>
+          </div>
         </div>
       </section>
 
