@@ -316,7 +316,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
         </div>
       </div>
 
-      <section className="md:mx-auto px-4 -mt-8">
+      <section className="md:mx-40 px-4 -mt-8">
         <div className="w-full">
           {/* Card principal */}
           <div className="bg-white rounded-lg shadow-lg p-6 pt-2">
