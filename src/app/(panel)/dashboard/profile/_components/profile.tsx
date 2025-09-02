@@ -86,6 +86,9 @@ export function ProfileContent({ user }: ProfileContentProps) {
   const [selectedHours, setSelectedHours] = useState<string[]>(
     user.times ?? []
   );
+  const [selectedWorkingDays, setSelectedWorkingDays] = useState<string[]>(
+    user.workingDays ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]
+  );
 
   // Estados para mensagens do WhatsApp - iniciar vazio para evitar hidratação
   const [whatsappMessages, setWhatsappMessages] = useState({
@@ -318,6 +321,16 @@ export function ProfileContent({ user }: ProfileContentProps) {
 
   const hours = generateTimeSlots();
 
+  const weekDays = [
+    { key: "monday", label: "Segunda-feira" },
+    { key: "tuesday", label: "Terça-feira" },
+    { key: "wednesday", label: "Quarta-feira" },
+    { key: "thursday", label: "Quinta-feira" },
+    { key: "friday", label: "Sexta-feira" },
+    { key: "saturday", label: "Sábado" },
+    { key: "sunday", label: "Domingo" },
+  ];
+
   function toggleHour(hour: string) {
     setSelectedHours((prev) =>
       prev.includes(hour)
@@ -326,7 +339,14 @@ export function ProfileContent({ user }: ProfileContentProps) {
     );
   }
 
+  function toggleWorkingDay(day: string) {
+    setSelectedWorkingDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  }
+
   const [horariosModalOpen, setHorariosModalOpen] = useState(false);
+  const [workingDaysModalOpen, setWorkingDaysModalOpen] = useState(false);
 
   const timeZones = Intl.supportedValuesOf("timeZone").filter(
     (zone) =>
@@ -349,6 +369,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
       status: values.status === "active" ? true : false,
       timeZone: values.timeZone,
       times: selectedHours || [],
+      workingDays: selectedWorkingDays || [],
       headerColor: values.headerColor,
     });
 
@@ -749,10 +770,117 @@ export function ProfileContent({ user }: ProfileContentProps) {
                       </section>
 
                       <Button
-                        className="w-full bg-emerald-500"
-                        onClick={() => setDialogIsOpen(false)}
+                        className="w-full bg-emerald-500 hover:bg-emerald-400"
+                        onClick={async () => {
+                          // Salvar os horários
+                          const response = await updateProfile({
+                            name: form.getValues("name"),
+                            address: form.getValues("address"),
+                            phone: form.getValues("phone"),
+                            pix: form.getValues("pix"),
+                            status:
+                              form.getValues("status") === "active"
+                                ? true
+                                : false,
+                            timeZone: form.getValues("timeZone"),
+                            times: selectedHours || [],
+                            workingDays: selectedWorkingDays || [],
+                            headerColor: form.getValues("headerColor"),
+                          });
+
+                          if (response.error) {
+                            toast.error(response.error);
+                          } else {
+                            toast.success("Horários salvos com sucesso!");
+                            setDialogIsOpen(false);
+                          }
+                        }}
                       >
                         Salvar Horários
+                      </Button>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-semibold">
+                    Configurar Dias de Funcionamento
+                  </Label>
+
+                  <Dialog
+                    open={workingDaysModalOpen}
+                    onOpenChange={setWorkingDaysModalOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between"
+                      >
+                        Clique aqui para selecionar Dias de Funcionamento
+                        <ArrowRight />
+                      </Button>
+                    </DialogTrigger>
+
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>
+                          Dias de Funcionamento da Clínica
+                        </DialogTitle>
+                        <DialogDescription>
+                          Selecione abaixo os dias da semana que a clínica
+                          funciona:
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <section className="py-2">
+                        <div className="grid grid-cols-1 gap-2">
+                          {weekDays.map((day) => (
+                            <Button
+                              key={day.key}
+                              variant="outline"
+                              className={cn(
+                                "h-12 justify-start",
+                                selectedWorkingDays.includes(day.key) &&
+                                  "border-2 border-emerald-500 text-primary bg-emerald-200"
+                              )}
+                              onClick={() => toggleWorkingDay(day.key)}
+                            >
+                              {day.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </section>
+
+                      <Button
+                        className="w-full bg-emerald-500 hover:bg-emerald-400"
+                        onClick={async () => {
+                          // Salvar os dias de funcionamento
+                          const response = await updateProfile({
+                            name: form.getValues("name"),
+                            address: form.getValues("address"),
+                            phone: form.getValues("phone"),
+                            pix: form.getValues("pix"),
+                            status:
+                              form.getValues("status") === "active"
+                                ? true
+                                : false,
+                            timeZone: form.getValues("timeZone"),
+                            times: selectedHours || [],
+                            workingDays: selectedWorkingDays || [],
+                            headerColor: form.getValues("headerColor"),
+                          });
+
+                          if (response.error) {
+                            toast.error(response.error);
+                          } else {
+                            toast.success(
+                              "Dias de funcionamento salvos com sucesso!"
+                            );
+                            setWorkingDaysModalOpen(false);
+                          }
+                        }}
+                      >
+                        Salvar Dias de Funcionamento
                       </Button>
                     </DialogContent>
                   </Dialog>
@@ -922,7 +1050,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
                 <DialogHeader>
                   <DialogTitle>Adicionar Novo Profissional</DialogTitle>
                   <DialogDescription>
-                    Cadastre um novo profissional para sua clinica
+                    Cadastre um novo profissional
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -958,7 +1086,9 @@ export function ProfileContent({ user }: ProfileContentProps) {
                   </div>
 
                   <div>
-                    <Label htmlFor="professionalName">Nome Completo</Label>
+                    <Label className="mb-2" htmlFor="professionalName">
+                      Nome Completo
+                    </Label>
                     <Input
                       id="professionalName"
                       value={newProfessional.name}
@@ -1146,6 +1276,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
               </div>
             </DialogContent>
           </Dialog>
+
           {/* Lista de Profissionais */}
           <div className="space-y-3">
             {professionals.length === 0 ? (

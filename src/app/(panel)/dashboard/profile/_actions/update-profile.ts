@@ -13,6 +13,7 @@ const formSchema = z.object({
   status: z.boolean(),
   timeZone: z.string(),
   times: z.array(z.string()),
+  workingDays: z.array(z.string()),
   headerColor: z.string(),
 });
 
@@ -47,6 +48,7 @@ export async function updateProfile(formData: FormSchema) {
         status: formData.status,
         timezone: formData.timeZone,
         times: formData.times || [],
+        workingDays: formData.workingDays || [],
         headerColor: formData.headerColor,
       },
     });

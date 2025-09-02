@@ -81,6 +81,65 @@ export function ReviewsContent({ clinic }: ReviewsContentProps) {
     return total / reviews.length;
   }, [reviews]);
 
+  // Função para formatar os horários de funcionamento por dia
+  const workingHoursData = useMemo(() => {
+    const workingDays = clinic.workingDays || [];
+    const times = clinic.times || [];
+
+    const daysOfWeek = [
+      { key: "sunday", name: "Domingo" },
+      { key: "monday", name: "Segunda-feira" },
+      { key: "tuesday", name: "Terça-feira" },
+      { key: "wednesday", name: "Quarta-feira" },
+      { key: "thursday", name: "Quinta-feira" },
+      { key: "friday", name: "Sexta-feira" },
+      { key: "saturday", name: "Sábado" },
+    ];
+
+    return daysOfWeek.map((day) => {
+      const isWorkingDay = workingDays.includes(day.key);
+      let schedule = "Fechado";
+
+      if (isWorkingDay && times.length > 0) {
+        const firstTime = times[0];
+        const lastTime = times[times.length - 1];
+        schedule = `${firstTime} às ${lastTime}`;
+      }
+
+      return {
+        name: day.name,
+        schedule,
+        isOpen: isWorkingDay,
+      };
+    });
+  }, [clinic.workingDays, clinic.times]);
+  const formatWorkingHours = useMemo(() => {
+    const workingDays = clinic.workingDays || [];
+    const times = clinic.times || [];
+
+    if (workingDays.length === 0 || times.length === 0) {
+      return "Horários não informados";
+    }
+
+    const dayNamesPortuguese = {
+      monday: "Segunda",
+      tuesday: "Terça",
+      wednesday: "Quarta",
+      thursday: "Quinta",
+      friday: "Sexta",
+      saturday: "Sábado",
+      sunday: "Domingo",
+    };
+
+    const firstTime = times[0];
+    const lastTime = times[times.length - 1];
+
+    const formattedDays = workingDays
+      .map((day) => dayNamesPortuguese[day as keyof typeof dayNamesPortuguese])
+      .join(", ");
+
+    return `${formattedDays}: ${firstTime} às ${lastTime}`;
+  }, [clinic.workingDays, clinic.times]);
   // Função para renderizar estrelas baseada na média
   const renderStars = (rating: number) => {
     const stars = [];
@@ -250,6 +309,34 @@ export function ReviewsContent({ clinic }: ReviewsContentProps) {
       {/* Seção de Avaliações */}
       <section className="max-w-2xl mx-auto w-full mt-6 px-4">
         <div className="bg-white rounded-lg p-6">
+          {/* Seção de Horários de Funcionamento */}
+          <div className="mb-8">
+            <h2 className="text-lg font-bold mb-4">
+              Horários de funcionamento
+            </h2>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="space-y-3">
+                {workingHoursData.map((day, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center"
+                  >
+                    <span className="text-gray-700 font-medium">
+                      {day.name}
+                    </span>
+                    <span
+                      className={`text-sm ${
+                        day.isOpen ? "text-gray-600" : "text-red-500"
+                      }`}
+                    >
+                      {day.schedule}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Seção de Resumo das Avaliações */}
           {reviews.length > 0 && (
             <div className="mb-8">

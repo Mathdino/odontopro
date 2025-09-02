@@ -66,7 +66,6 @@ export async function getClinicInfo(userId: string) {
             },
           },
         },
-        reviews: true,
       },
     });
 

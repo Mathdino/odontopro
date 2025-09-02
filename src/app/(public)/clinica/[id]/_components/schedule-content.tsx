@@ -212,6 +212,35 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
 
   useEffect(() => {
     if (selectedDate) {
+      // Verificar se a clínica funciona no dia da semana selecionado
+      const dayOfWeek = selectedDate.getDay(); // 0 = domingo, 1 = segunda, ..., 6 = sábado
+      const dayNames = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ];
+      const selectedDayName = dayNames[dayOfWeek];
+
+      const workingDays = clinic.workingDays || [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+      ];
+
+      if (!workingDays.includes(selectedDayName)) {
+        // Se a clínica não funciona neste dia, não mostrar horários disponíveis
+        setAvaliableTimeSlots([]);
+        setBlockedTimes([]);
+        setSelectedTime("");
+        return;
+      }
+
       fetchBlockedTimes(selectedDate).then((blocked) => {
         console.log("=== FETCH BLOCKED TIMES ===");
         console.log("API retornou blocked:", blocked);
@@ -244,6 +273,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     selectedServiceId,
     fetchBlockedTimes,
     clinic.times,
+    clinic.workingDays,
     selectedTime,
   ]);
 
@@ -383,23 +413,83 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
               </div>
 
               {/* Nome da clínica */}
-              <h1 className="text-xl font-bold mb-4 text-left w-full">
+              <h1 className="text-xl font-bold mb-2 text-left w-full">
                 {clinic.name}
               </h1>
 
+              {/* Status da clínica */}
+              <div className="w-full mb-4">
+                {(() => {
+                  const now = new Date();
+                  const currentDay = now.getDay();
+                  const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+
+                  const dayNames = [
+                    "sunday",
+                    "monday",
+                    "tuesday",
+                    "wednesday",
+                    "thursday",
+                    "friday",
+                    "saturday",
+                  ];
+
+                  const currentDayName = dayNames[currentDay];
+                  const workingDays = clinic.workingDays || [
+                    "monday",
+                    "tuesday",
+                    "wednesday",
+                    "thursday",
+                    "friday",
+                  ];
+
+                  const clinicTimes = clinic.times || [];
+
+                  // Verificar se está em um dia de funcionamento
+                  const isWorkingDay = workingDays.includes(currentDayName);
+
+                  // Verificar se está dentro do horário de funcionamento
+                  const isWithinWorkingHours =
+                    clinicTimes.length > 0 &&
+                    currentTime >= clinicTimes[0] &&
+                    currentTime <= clinicTimes[clinicTimes.length - 1];
+
+                  const isOpen =
+                    clinic.status && isWorkingDay && isWithinWorkingHours;
+
+                  return (
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          isOpen ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      ></div>
+                      <span
+                        className={`text-sm font-medium ${
+                          isOpen ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {isOpen ? "Atendendo Agora" : "Fechado"}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
               {/* Linha divisória */}
               <div className="w-full h-px bg-gray-200 mb-4"></div>
 
               {/* Avaliações */}
               <Link
                 href={`/clinica/${clinic.id}/avaliacoes`}
-                className="flex items-center justify-between mb-4 w-full hover:bg-gray-50 transition-colors duration-200 rounded-lg p-2 -m-2"
+                className="flex items-center justify-between mb-2 w-full hover:bg-gray-50 transition-colors duration-200 rounded-lg p-2 -m-2"
               >
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 text-black fill-current" />
                   <span className="text-sm text-gray-600">
-                    {reviewsData.averageRating.toFixed(1)} (
-                    {reviewsData.totalReviews} avaliações)
+                    <b className="font-semibold text-black">
+                      {reviewsData.averageRating.toFixed(1)}
+                    </b>{" "}
+                    ({reviewsData.totalReviews} avaliações)
                   </span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -408,7 +498,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
               <div className="w-full h-px bg-gray-200 mb-4"></div>
 
               {/* Endereço */}
-              <div className="flex items-center justify-between mb-2 w-full">
+              <div className="flex items-center justify-between mb-4 w-full">
                 <div className="flex items-center gap-1">
                   <MapPin className="w-4 h-4 text-gray-500" />
                   <span className="text-sm text-gray-600">
@@ -552,42 +642,43 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
           <DialogHeader>
             <DialogTitle>Agendar Serviço</DialogTitle>
             <DialogDescription>
-              {selectedService && (
-                <div className="flex items-center gap-4 mt-3 p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl border-2 border-emerald-200 shadow-sm">
-                  <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-md">
-                    <Image
-                      src={getServiceImageUrl(selectedService.image)}
-                      alt={`Imagem do serviço ${selectedService.name}`}
-                      width={64}
-                      height={64}
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="flex flex-col flex-1">
-                    <span className="font-bold text-lg text-emerald-900 mb-1">
-                      {selectedService.name}
-                    </span>
-                    <div className="flex items-center gap-3 text-emerald-700">
-                      <div className="flex items-center gap-1">
-                        <span className="text-lg font-semibold">
-                          {formatCurrency(selectedService.price / 100)}
-                        </span>
-                      </div>
-                      <span className="text-emerald-400">•</span>
-                      <span className="font-medium">
-                        {formatDuration(selectedService.duration)}
-                      </span>
-                    </div>
-                    {selectedService.description && (
-                      <p className="text-sm text-emerald-600 italic">
-                        {selectedService.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
+              Preencha os dados abaixo para agendar seu serviço.
             </DialogDescription>
           </DialogHeader>
+          {selectedService && (
+            <div className="flex items-center gap-4 mt-3 p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl border-2 border-emerald-200 shadow-sm">
+              <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-md">
+                <Image
+                  src={getServiceImageUrl(selectedService.image)}
+                  alt={`Imagem do serviço ${selectedService.name}`}
+                  width={64}
+                  height={64}
+                  className="object-cover"
+                />
+              </div>
+              <div className="flex flex-col flex-1">
+                <span className="font-bold text-lg text-emerald-900 mb-1">
+                  {selectedService.name}
+                </span>
+                <div className="flex items-center gap-3 text-emerald-700">
+                  <div className="flex items-center gap-1">
+                    <span className="text-lg font-semibold">
+                      {formatCurrency(selectedService.price / 100)}
+                    </span>
+                  </div>
+                  <span className="text-emerald-400">•</span>
+                  <span className="font-medium">
+                    {formatDuration(selectedService.duration)}
+                  </span>
+                </div>
+                {selectedService.description && (
+                  <p className="text-sm text-emerald-600 italic">
+                    {selectedService.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <Form {...form}>
             <form
@@ -684,28 +775,78 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                   <div className="bg-gray-100 p-4 rounded-lg">
                     {loadingSlots ? (
                       <p>Carregando horários...</p>
-                    ) : avaliableTimeSlots.length === 0 ? (
-                      <p>Nenhum horário disponível nesse dia.</p>
                     ) : (
-                      <ScheduleTimesLista
-                        selectedDate={selectedDate}
-                        selectedTime={selectedTime}
-                        requiredSlots={
-                          clinic.services.find(
-                            (service) => service.id === selectedServiceId
-                          )
-                            ? Math.ceil(
-                                clinic.services.find(
-                                  (service) => service.id === selectedServiceId
-                                )!.duration / 30
-                              )
-                            : 1
+                      (() => {
+                        // Verificar se a clínica funciona no dia selecionado
+                        const dayOfWeek = selectedDate.getDay();
+                        const dayNames = [
+                          "sunday",
+                          "monday",
+                          "tuesday",
+                          "wednesday",
+                          "thursday",
+                          "friday",
+                          "saturday",
+                        ];
+                        const selectedDayName = dayNames[dayOfWeek];
+                        const workingDays = clinic.workingDays || [
+                          "monday",
+                          "tuesday",
+                          "wednesday",
+                          "thursday",
+                          "friday",
+                        ];
+
+                        if (!workingDays.includes(selectedDayName)) {
+                          const dayNamesPortuguese = {
+                            sunday: "domingo",
+                            monday: "segunda-feira",
+                            tuesday: "terça-feira",
+                            wednesday: "quarta-feira",
+                            thursday: "quinta-feira",
+                            friday: "sexta-feira",
+                            saturday: "sábado",
+                          };
+                          return (
+                            <p>
+                              A clínica não funciona em{" "}
+                              {
+                                dayNamesPortuguese[
+                                  selectedDayName as keyof typeof dayNamesPortuguese
+                                ]
+                              }
+                              .
+                            </p>
+                          );
                         }
-                        onSelectTime={(time) => setSelectedTime(time)}
-                        blockedTimes={blockedTimes}
-                        availableTimeSlots={avaliableTimeSlots}
-                        clinicTimes={clinic.times}
-                      />
+
+                        if (avaliableTimeSlots.length === 0) {
+                          return <p>Nenhum horário disponível nesse dia.</p>;
+                        }
+
+                        return (
+                          <ScheduleTimesLista
+                            selectedDate={selectedDate}
+                            selectedTime={selectedTime}
+                            requiredSlots={
+                              clinic.services.find(
+                                (service) => service.id === selectedServiceId
+                              )
+                                ? Math.ceil(
+                                    clinic.services.find(
+                                      (service) =>
+                                        service.id === selectedServiceId
+                                    )!.duration / 30
+                                  )
+                                : 1
+                            }
+                            onSelectTime={(time) => setSelectedTime(time)}
+                            blockedTimes={blockedTimes}
+                            availableTimeSlots={avaliableTimeSlots}
+                            clinicTimes={clinic.times}
+                          />
+                        );
+                      })()
                     )}
                   </div>
                 </div>

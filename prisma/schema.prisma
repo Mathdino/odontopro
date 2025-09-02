@@ -123,6 +123,7 @@ model User {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   times              String[]         @default([])
+  workingDays        String[]         @default(["monday", "tuesday", "wednesday", "thursday", "friday"])
   headerColor        String?          @default("bg-emerald-500")
   accounts           Account[]
   appointments       Appointment[]

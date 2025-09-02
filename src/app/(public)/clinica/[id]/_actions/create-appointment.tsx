@@ -53,6 +53,33 @@ export async function createNewAppointment(formData: FormSchema) {
       };
     }
 
+    // Verificar se a clínica funciona no dia da semana selecionado
+    const dayOfWeek = formData.date.getDay(); // 0 = domingo, 1 = segunda, ..., 6 = sábado
+    const dayNames = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ];
+    const selectedDayName = dayNames[dayOfWeek];
+
+    const workingDays = clinic.workingDays || [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+    ];
+
+    if (!workingDays.includes(selectedDayName)) {
+      return {
+        error: "A clínica não funciona neste dia da semana",
+      };
+    }
+
     const selectedDate = new Date(formData.date);
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();

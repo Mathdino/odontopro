@@ -65,6 +65,36 @@ export async function GET(request: NextRequest) {
 
     console.log("Usuário encontrado:", user.name);
     console.log("user.times:", user.times);
+    console.log("user.workingDays:", user.workingDays);
+
+    // Verificar se a clínica funciona no dia da semana selecionado
+    const dayOfWeek = startDate.getDay(); // 0 = domingo, 1 = segunda, ..., 6 = sábado
+    const dayNames = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ];
+    const selectedDayName = dayNames[dayOfWeek];
+
+    const workingDays = user.workingDays || [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+    ];
+
+    if (!workingDays.includes(selectedDayName)) {
+      console.log(`Clínica não funciona em ${selectedDayName}`);
+      return NextResponse.json({
+        ok: true,
+        blockedTimes: user.times || [], // Bloquear todos os horários se não funciona neste dia
+      });
+    }
 
     const appointments = await prisma.appointment.findMany({
       where: {
