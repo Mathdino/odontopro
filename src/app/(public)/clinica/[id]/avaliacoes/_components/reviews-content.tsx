@@ -8,6 +8,7 @@ import { MapPin, ChevronLeft, Heart, Star, Plus } from "lucide-react";
 import { Prisma } from "../../../../../../generated/prisma";
 import { Button } from "@/components/ui/button";
 import { AddReviewForm } from "./add-review-form";
+import { toast } from "sonner";
 
 type UserWithServiceAndSubscription = Prisma.UserGetPayload<{
   include: {
@@ -148,6 +149,9 @@ export function ReviewsContent({ clinic }: ReviewsContentProps) {
 
   const handleToggleFavorite = () => {
     setIsFavorite(!isFavorite);
+    toast.success(
+      !isFavorite ? "Adicionado aos favoritos" : "Removido dos favoritos"
+    );
   };
 
   const handleAddReview = () => {

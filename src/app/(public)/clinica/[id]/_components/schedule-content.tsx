@@ -396,7 +396,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                 className="flex items-center justify-between mb-4 w-full hover:bg-gray-50 transition-colors duration-200 rounded-lg p-2 -m-2"
               >
                 <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 text-emerald-400 fill-current" />
+                  <Star className="w-4 h-4 text-black fill-current" />
                   <span className="text-sm text-gray-600">
                     {reviewsData.averageRating.toFixed(1)} (
                     {reviewsData.totalReviews} avaliações)
