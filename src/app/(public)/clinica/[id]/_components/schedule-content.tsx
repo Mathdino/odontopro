@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import imgTest from "../../../../../../public/foto1.png";
 import {
@@ -104,6 +105,10 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedService, setSelectedService] =
     useState<ServiceWithCategory | null>(null);
+  const [reviewsData, setReviewsData] = useState<{
+    averageRating: number;
+    totalReviews: number;
+  }>({ averageRating: 0, totalReviews: 0 });
 
   // Agrupar serviços por categoria
   const servicesByCategory = useMemo(() => {
@@ -136,6 +141,52 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
       return a.category.order - b.category.order;
     });
   }, [clinic.services]);
+
+  // Buscar dados das avaliações
+  useEffect(() => {
+    const fetchReviewsData = async () => {
+      try {
+        const response = await fetch(
+          `/api/reviews/get-reviews?clinicId=${clinic.id}`
+        );
+        const data = await response.json();
+
+        if (data.ok) {
+          setReviewsData({
+            averageRating: data.averageRating || 0,
+            totalReviews: data.totalReviews || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Erro ao buscar avaliações:", error);
+      }
+    };
+
+    fetchReviewsData();
+  }, [clinic.id]);
+
+  // Buscar dados das avaliações
+  useEffect(() => {
+    const fetchReviewsData = async () => {
+      try {
+        const response = await fetch(
+          `/api/reviews/get-reviews?clinicId=${clinic.id}`
+        );
+        const data = await response.json();
+
+        if (data.ok) {
+          setReviewsData({
+            averageRating: data.averageRating || 0,
+            totalReviews: data.totalReviews || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Erro ao buscar avaliações:", error);
+      }
+    };
+
+    fetchReviewsData();
+  }, [clinic.id]);
 
   const fetchBlockedTimes = useCallback(
     async (date: Date): Promise<string[]> => {
@@ -340,16 +391,19 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
               <div className="w-full h-px bg-gray-200 mb-4"></div>
 
               {/* Avaliações */}
-              <div className="flex items-center justify-between mb-4 w-full">
+              <Link
+                href={`/clinica/${clinic.id}/avaliacoes`}
+                className="flex items-center justify-between mb-4 w-full hover:bg-gray-50 transition-colors duration-200 rounded-lg p-2 -m-2"
+              >
                 <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <Star className="w-4 h-4 text-emerald-400 fill-current" />
                   <span className="text-sm text-gray-600">
-                    4,8 (total de avaliações)
+                    {reviewsData.averageRating.toFixed(1)} (
+                    {reviewsData.totalReviews} avaliações)
                   </span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-400" />
-              </div>
-
+              </Link>
               {/* Linha divisória */}
               <div className="w-full h-px bg-gray-200 mb-4"></div>
 

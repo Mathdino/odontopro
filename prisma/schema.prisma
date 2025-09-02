@@ -97,6 +97,17 @@ model WhatsappMessage {
   @@map("whatsapp_messages")
 }
 
+model Review {
+  id        String   @id @default(uuid())
+  name      String
+  rating    Int      // Nota de 0 a 5
+  comment   String
+  clinicId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinic    User     @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
 model User {
   id                 String           @id @default(cuid())
   name               String?
@@ -119,6 +130,7 @@ model User {
   categories         Category[]
   professionals      Professional[]
   reminders          Reminder[]
+  reviews            Review[]
   services           Service[]
   sessions           Session[]
   subscription       Subscription?
