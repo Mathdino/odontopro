@@ -9,18 +9,36 @@ datasource db {
 }
 
 model Appointment {
-  id              String   @id @default(uuid())
+  id              String        @id @default(uuid())
   name            String
   email           String
   phone           String
   appointmentDate DateTime
   time            String
   userId          String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  professionalId  String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   serviceId       String
-  service         Service  @relation(fields: [serviceId], references: [id])
-  user            User     @relation(fields: [userId], references: [id])
+  service         Service       @relation(fields: [serviceId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+  professional    Professional? @relation(fields: [professionalId], references: [id])
+}
+
+model Professional {
+  id             String        @id @default(uuid())
+  name           String
+  image          String?
+  specialty      String        @default("")
+  availableTimes String[]      @default([])
+  totalCuts      Int           @default(0)
+  rating         Float         @default(5.0)
+  status         Boolean       @default(true)
+  userId         String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  appointments   Appointment[]
+  user           User          @relation(fields: [userId], references: [id])
 }
 
 model Reminder {
@@ -69,20 +87,6 @@ model Subscription {
   updatedAt DateTime @updatedAt
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id])
-}
-
-model Professional {
-  id             String   @id @default(uuid())
-  name           String
-  image          String?
-  availableTimes String[] @default([])
-  totalCuts      Int      @default(0)
-  rating         Float    @default(5.0)
-  status         Boolean  @default(true)
-  userId         String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User     @relation(fields: [userId], references: [id])
 }
 
 model WhatsappMessage {

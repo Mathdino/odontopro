@@ -54,6 +54,16 @@ import {
   formatCurrencyWithSmallCents,
 } from "@/utils/formatCurrency";
 import { getServiceImageUrl } from "@/utils/getServiceImage";
+import { ProfessionalCard } from "./professional-card";
+
+// Interface para Professional
+interface Professional {
+  id: string;
+  name: string;
+  specialty?: string | null;
+  profileImage?: string | null;
+  availableTimes: string[];
+}
 
 type UserWithServiceAndSubscription = Prisma.UserGetPayload<{
   include: {
@@ -109,6 +119,14 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     averageRating: number;
     totalReviews: number;
   }>({ averageRating: 0, totalReviews: 0 });
+
+  // Estados para profissionais
+  const [availableProfessionals, setAvailableProfessionals] = useState<
+    Professional[]
+  >([]);
+  const [selectedProfessionalId, setSelectedProfessionalId] =
+    useState<string>("");
+  const [loadingProfessionals, setLoadingProfessionals] = useState(false);
 
   // Agrupar serviços por categoria
   const servicesByCategory = useMemo(() => {
@@ -210,6 +228,23 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     [clinic.id]
   );
 
+  const fetchAvailableProfessionals = useCallback(
+    async (date: Date, time: string): Promise<Professional[]> => {
+      try {
+        const dateString = date.toISOString().split("T")[0];
+        const res = await fetch(
+          `/api/schedule/get-available-professionals?clinicId=${clinic.id}&date=${dateString}&time=${time}`
+        );
+        const json = await res.json();
+        return json.professionals || [];
+      } catch (err) {
+        console.log(err);
+        return [];
+      }
+    },
+    [clinic.id]
+  );
+
   useEffect(() => {
     if (selectedDate) {
       // Verificar se a clínica funciona no dia da semana selecionado
@@ -277,8 +312,39 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     selectedTime,
   ]);
 
+  // Efeito para buscar profissionais quando horário é selecionado
+  useEffect(() => {
+    if (selectedDate && selectedTime) {
+      fetchAvailableProfessionals(selectedDate, selectedTime).then(
+        (professionals) => {
+          setAvailableProfessionals(professionals);
+          // Reset seleção se profissional não estiver mais disponível
+          if (
+            selectedProfessionalId &&
+            !professionals.find((p) => p.id === selectedProfessionalId)
+          ) {
+            setSelectedProfessionalId("");
+          }
+        }
+      );
+    } else {
+      setAvailableProfessionals([]);
+      setSelectedProfessionalId("");
+    }
+  }, [
+    selectedDate,
+    selectedTime,
+    fetchAvailableProfessionals,
+    selectedProfessionalId,
+  ]);
+
   async function handleRegisterAppointment(formData: AppointmentFormData) {
     if (!selectedTime) {
+      return;
+    }
+
+    if (!selectedProfessionalId) {
+      toast.error("Por favor, selecione um profissional.");
       return;
     }
 
@@ -290,6 +356,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
       serviceId: formData.serviceId,
       clinicId: clinic.id,
       time: selectedTime,
+      professionalId: selectedProfessionalId,
     });
     if (response.error) {
       toast.error(response.error);
@@ -299,6 +366,8 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     toast.success("Agendamento realizado com sucesso!");
     form.reset();
     setSelectedTime("");
+    setSelectedProfessionalId("");
+    setAvailableProfessionals([]);
     setIsModalOpen(false);
     setSelectedService(null);
 
@@ -852,6 +921,41 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                 </div>
               )}
 
+              {selectedTime && (
+                <div className="space-y-2">
+                  <Label>Profissionais Disponíveis</Label>
+                  <div className="bg-gray-100 p-4 rounded-lg">
+                    {loadingProfessionals ? (
+                      <p className="text-sm text-gray-600">
+                        Carregando profissionais...
+                      </p>
+                    ) : availableProfessionals.length === 0 ? (
+                      <p className="text-sm text-gray-600">
+                        Nenhum profissional disponível neste horário.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-600 mb-3">
+                          Selecione um profissional para o atendimento:
+                        </p>
+                        <div className="grid gap-2">
+                          {availableProfessionals.map((professional) => (
+                            <ProfessionalCard
+                              key={professional.id}
+                              professional={professional}
+                              isSelected={
+                                selectedProfessionalId === professional.id
+                              }
+                              onSelect={setSelectedProfessionalId}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
@@ -873,7 +977,8 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                     !watch("date") ||
                     !watch("name") ||
                     !watch("phone") ||
-                    !selectedTime
+                    !selectedTime ||
+                    !selectedProfessionalId
                   }
                 >
                   Confirmar Agendamento

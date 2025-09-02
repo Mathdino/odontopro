@@ -3,14 +3,16 @@
 import z, { date } from "zod";
 import prisma from "@/lib/prisma";
 
+// Adicionar professionalId no schema
 const formSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  email: z.string().email("Email é obrigatório"),
+  email: z.string().email("Email inválido"),
   phone: z.string().min(1, "Telefone é obrigatório"),
-  date: z.date(),
   serviceId: z.string().min(1, "Serviço é obrigatório"),
   clinicId: z.string().min(1, "Clínica é obrigatória"),
+  date: z.date(),
   time: z.string().min(1, "Horário é obrigatório"),
+  professionalId: z.string().optional(),
 });
 
 type FormSchema = z.infer<typeof formSchema>;
@@ -87,29 +89,17 @@ export async function createNewAppointment(formData: FormSchema) {
     const appointmentDate = new Date(year, month, day, 0, 0, 0, 0);
 
     // Verificar se já existe agendamento no mesmo horário
+    // Na verificação de agendamento existente:
     const existingAppointment = await prisma.appointment.findFirst({
       where: {
         userId: formData.clinicId,
         appointmentDate: appointmentDate,
         time: formData.time,
+        professionalId: formData.professionalId || null,
       },
     });
 
-    if (existingAppointment) {
-      return {
-        error: "Este horário já está ocupado",
-      };
-    }
-
-    // Verificar se a data não é no passado
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (appointmentDate < today) {
-      return {
-        error: "Não é possível agendar para datas passadas",
-      };
-    }
-
+    // Na criação do agendamento:
     const newAppointment = await prisma.appointment.create({
       data: {
         name: formData.name,
@@ -118,6 +108,7 @@ export async function createNewAppointment(formData: FormSchema) {
         serviceId: formData.serviceId,
         time: formData.time,
         userId: formData.clinicId,
+        professionalId: formData.professionalId || null,
         appointmentDate,
       },
     });
