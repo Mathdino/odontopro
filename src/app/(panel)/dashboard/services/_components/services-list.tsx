@@ -122,6 +122,7 @@ export function ServicesList({ services, userId }: ServiceListProps) {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4" />
+                Novo Serviço
               </Button>
             </DialogTrigger>
             <DialogContent
