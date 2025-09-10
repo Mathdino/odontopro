@@ -119,6 +119,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
                     className="flex items-center py-2 border-t last:border-b"
                   >
                     <div className="w-16 text-sm font-semibold">{slot}</div>
+                    <div className="flex justify-between border border-gray-300 bg-gray-100 py-4 px-4 w-full">
                     <div className="flex-1 text-sm">
                       <div className="font-semibold mb-1">{occupant.name}</div>
                       <div className="text-sm flex items-center text-gray-500">
@@ -128,7 +129,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
                     </div>
 
                     <div className="ml-auto">
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <Button variant="ghost" size="icon">
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -148,6 +149,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
                           <X className="w-4 h-4" />
                         </Button>
                       </div>
+                    </div>
                     </div>
                   </div>
                 );
