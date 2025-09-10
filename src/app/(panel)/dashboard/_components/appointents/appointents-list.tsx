@@ -14,8 +14,8 @@ import { format } from "date-fns";
 import { Prisma } from "@prisma/client";
 import { Check, Eye, Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cancelAppointment } from "../../_actions/cancel-appointment";
-import { confirmAppointment } from "../../_actions/confirm-appointment";
+import { cancelAppointment, cancelMultipleAppointments } from "../../_actions/cancel-appointment";
+import { confirmAppointment, confirmMultipleAppointments } from "../../_actions/confirm-appointment";
 import { toast } from "sonner";
 
 type AppointmentWithService = Prisma.AppointmentGetPayload<{
@@ -62,12 +62,26 @@ export function AppointentsList({ times }: AppointentsListProps) {
   });
 
   const occupantMap: Record<string, AppointmentWithService[]> = {};
+  const clientGroupMap: Record<string, AppointmentWithService[]> = {};
 
   if (data && data.length > 0) {
+    // First, group appointments by client (name + phone + time)
     for (const appointment of data) {
-      const requiredSlots = Math.ceil(appointment.service.duration / 30);
+      const clientKey = `${appointment.name}-${appointment.phone}-${appointment.time}`;
+      if (!clientGroupMap[clientKey]) {
+        clientGroupMap[clientKey] = [];
+      }
+      clientGroupMap[clientKey].push(appointment);
+    }
 
-      const startIndex = times.indexOf(appointment.time);
+    // Then, process each client group for time slot mapping
+    Object.values(clientGroupMap).forEach(clientAppointments => {
+      // Use the first appointment to determine time slots
+      const primaryAppointment = clientAppointments[0];
+      const totalDuration = clientAppointments.reduce((sum, apt) => sum + apt.service.duration, 0);
+      const requiredSlots = Math.ceil(totalDuration / 30);
+
+      const startIndex = times.indexOf(primaryAppointment.time);
 
       if (startIndex !== -1) {
         for (let i = 0; i < requiredSlots; i++) {
@@ -80,54 +94,109 @@ export function AppointentsList({ times }: AppointentsListProps) {
             }
             // Only add to the first slot to avoid duplicates
             if (i === 0) {
-              occupantMap[timeSlot].push(appointment);
-            } else {
-              // For subsequent slots, just mark as occupied but don't duplicate the appointment
-              if (occupantMap[timeSlot].length === 0) {
-                occupantMap[timeSlot] = [appointment];
-              }
+              occupantMap[timeSlot].push(...clientAppointments);
             }
           }
         }
       }
-    }
+    });
   }
 
   async function handleCancelAppointement(appointmentId: string) {
-    const response = await cancelAppointment({
-      appointmentId,
-    });
+    // Find all appointments for the same client group
+    const appointmentToCancel = data?.find(apt => apt.id === appointmentId);
+    if (!appointmentToCancel) return;
 
-    if (response.error) {
-      toast.error(response.error);
-      return;
-    }
+    const clientKey = `${appointmentToCancel.name}-${appointmentToCancel.phone}-${appointmentToCancel.time}`;
+    const clientAppointments = data?.filter(apt => 
+      `${apt.name}-${apt.phone}-${apt.time}` === clientKey
+    ) || [];
 
-    queryClient.invalidateQueries({ queryKey: ["get-appointments"] });
-    await refetch();
-    toast.success(response.data);
+    // Use different functions based on number of appointments
+    try {
+      if (clientAppointments.length === 1) {
+        // Single appointment - use original function
+        const response = await cancelAppointment({ appointmentId });
+        
+        if (response.error) {
+          toast.error(response.error);
+          return;
+        }
 
-    // If there's a WhatsApp URL, open it
-    if (response.whatsappUrl) {
-      window.open(response.whatsappUrl, '_blank');
+        queryClient.invalidateQueries({ queryKey: ["get-appointments"] });
+        await refetch();
+        toast.success(response.data);
+
+        if (response.whatsappUrl) {
+          window.open(response.whatsappUrl, '_blank');
+        }
+      } else {
+        // Multiple appointments - use new function
+        const appointmentIds = clientAppointments.map(apt => apt.id);
+        const response = await cancelMultipleAppointments({ appointmentIds });
+        
+        if (response.error) {
+          toast.error(response.error);
+          return;
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["get-appointments"] });
+        await refetch();
+        toast.success(response.data);
+
+        if (response.whatsappUrl) {
+          window.open(response.whatsappUrl, '_blank');
+        }
+      }
+    } catch (error) {
+      toast.error("Erro inesperado ao cancelar agendamentos");
     }
   }
 
   async function handleConfirmAppointment(appointmentId: string) {
-    const response = await confirmAppointment({
-      appointmentId,
-    });
+    // Find all appointments for the same client group
+    const appointmentToConfirm = data?.find(apt => apt.id === appointmentId);
+    if (!appointmentToConfirm) return;
 
-    if (response.error) {
-      toast.error(response.error);
-      return;
-    }
+    const clientKey = `${appointmentToConfirm.name}-${appointmentToConfirm.phone}-${appointmentToConfirm.time}`;
+    const clientAppointments = data?.filter(apt => 
+      `${apt.name}-${apt.phone}-${apt.time}` === clientKey
+    ) || [];
 
-    toast.success(response.data);
+    // Use different functions based on number of appointments
+    try {
+      if (clientAppointments.length === 1) {
+        // Single appointment - use original function
+        const response = await confirmAppointment({ appointmentId });
+        
+        if (response.error) {
+          toast.error(response.error);
+          return;
+        }
 
-    // If there's a WhatsApp URL, open it
-    if (response.whatsappUrl) {
-      window.open(response.whatsappUrl, '_blank');
+        toast.success(response.data);
+
+        if (response.whatsappUrl) {
+          window.open(response.whatsappUrl, '_blank');
+        }
+      } else {
+        // Multiple appointments - use new function
+        const appointmentIds = clientAppointments.map(apt => apt.id);
+        const response = await confirmMultipleAppointments({ appointmentIds });
+        
+        if (response.error) {
+          toast.error(response.error);
+          return;
+        }
+
+        toast.success(response.data);
+
+        if (response.whatsappUrl) {
+          window.open(response.whatsappUrl, '_blank');
+        }
+      }
+    } catch (error) {
+      toast.error("Erro inesperado ao confirmar agendamentos");
     }
   }
 
@@ -153,61 +222,76 @@ export function AppointentsList({ times }: AppointentsListProps) {
                 return (
                   <div key={slot} className="border-t last:border-b">
                     <div className="w-16 text-sm font-semibold py-2">{slot}</div>
-                    {occupants.map((occupant) => {
-                      // Only show the appointment card if this is the starting time slot
-                      const appointmentStartTime = occupant.time;
-                      if (appointmentStartTime !== slot) {
-                        return null;
-                      }
+                    {(() => {
+                      // Group appointments by client (name + phone + time)
+                      const clientGroups: Record<string, AppointmentWithService[]> = {};
                       
-                      return (
-                        <div
-                          key={occupant.id}
-                          className="flex justify-between border border-gray-300 bg-gray-100 py-4 px-4 mb-2 last:mb-0 items-center"
-                        >
-                          <div className="flex-1 text-sm">
-                            <div className="font-semibold mb-3">{occupant.name}</div>
-                            <div className="text-sm text-gray-600 mb-1">
-                              <strong>Telefone:</strong> 
-                              {occupant.phone || 'Não informado'}
+                      occupants.forEach(occupant => {
+                        if (occupant.time === slot) { // Only show appointments that start at this time slot
+                          const clientKey = `${occupant.name}-${occupant.phone}-${occupant.time}`;
+                          if (!clientGroups[clientKey]) {
+                            clientGroups[clientKey] = [];
+                          }
+                          clientGroups[clientKey].push(occupant);
+                        }
+                      });
+
+                      return Object.values(clientGroups).map((clientAppointments) => {
+                        const primaryAppointment = clientAppointments[0];
+                        const allServices = clientAppointments.map(apt => apt.service.name);
+                        const servicesText = allServices.length > 1 
+                          ? allServices.join(' + ')
+                          : allServices[0];
+                        
+                        return (
+                          <div
+                            key={primaryAppointment.id}
+                            className="flex justify-between border border-gray-300 bg-gray-100 py-4 px-4 mb-2 last:mb-0 items-center"
+                          >
+                            <div className="flex-1 text-sm">
+                              <div className="font-semibold mb-3">{primaryAppointment.name}</div>
+                              <div className="text-sm text-gray-600 mb-1">
+                                <strong>Telefone:</strong> 
+                                {primaryAppointment.phone || 'Não informado'}
+                              </div>
+                              <div className="text-sm text-gray-600 mb-1">
+                                <strong>Profissional:</strong> {primaryAppointment.professional?.name || 'Não informado'}
+                              </div>
+                              <div className="text-sm text-gray-600 mb-1">
+                                <strong>{clientAppointments.length > 1 ? 'Serviços' : 'Serviço'}:</strong> {servicesText}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                <strong>Horário:</strong> {primaryAppointment.time}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-600 mb-1">
-                              <strong>Profissional:</strong> {occupant.professional?.name || 'Não informado'}
-                            </div>
-                            <div className="text-sm text-gray-600 mb-1">
-                              <strong>Serviço:</strong> {occupant.service.name}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              <strong>Horário:</strong> {occupant.time}
+
+                            <div className="ml-auto">
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="icon">
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+
+                                <Button
+                                  className="bg-emerald-500 text-white hover:bg-emerald-400"
+                                  onClick={() => handleConfirmAppointment(primaryAppointment.id)}
+                                  size="icon"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+
+                                <Button
+                                  className="bg-red-500 text-white hover:bg-red-400"
+                                  onClick={() => handleCancelAppointement(primaryAppointment.id)}
+                                  size="icon"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-
-                          <div className="ml-auto">
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="icon">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-
-                              <Button
-                                className="bg-emerald-500 text-white hover:bg-emerald-400"
-                                onClick={() => handleConfirmAppointment(occupant.id)}
-                                size="icon"
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
-
-                              <Button
-                                className="bg-red-500 text-white hover:bg-red-400"
-                                onClick={() => handleCancelAppointement(occupant.id)}
-                                size="icon"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 );
               }

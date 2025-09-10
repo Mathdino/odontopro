@@ -106,15 +106,15 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
   const router = useRouter();
 
   const selectedDate = watch("date");
-  const selectedServiceId = watch("serviceId");
+  const selectedServiceIds = watch("serviceIds");
   const [selectedTime, setSelectedTime] = useState("");
   const [avaliableTimeSlots, setAvaliableTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [blockedTimes, setBlockedTimes] = useState<string[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedService, setSelectedService] =
-    useState<ServiceWithCategory | null>(null);
+  const [selectedServices, setSelectedServices] = useState<ServiceWithCategory[]>([]);
+  const [showFloatingModal, setShowFloatingModal] = useState(false);
   const [reviewsData, setReviewsData] = useState<{
     averageRating: number;
     totalReviews: number;
@@ -305,7 +305,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     }
   }, [
     selectedDate,
-    selectedServiceId,
+    selectedServiceIds,
     fetchBlockedTimes,
     clinic.times,
     clinic.workingDays,
@@ -348,40 +348,59 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
       return;
     }
 
-    const response = await createNewAppointment({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      date: formData.date,
-      serviceId: formData.serviceId,
-      clinicId: clinic.id,
-      time: selectedTime,
-      professionalId: selectedProfessionalId,
-    });
-    if (response.error) {
-      toast.error(response.error);
+    if (!formData.serviceIds || formData.serviceIds.length === 0) {
+      toast.error("Por favor, selecione pelo menos um serviço.");
       return;
     }
 
-    toast.success("Agendamento realizado com sucesso!");
-    form.reset();
-    setSelectedTime("");
-    setSelectedProfessionalId("");
-    setAvailableProfessionals([]);
-    setIsModalOpen(false);
-    setSelectedService(null);
+    // Create appointments for each selected service
+    try {
+      const appointmentPromises = formData.serviceIds.map(serviceId => 
+        createNewAppointment({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          date: formData.date,
+          serviceId: serviceId,
+          clinicId: clinic.id,
+          time: selectedTime,
+          professionalId: selectedProfessionalId,
+        })
+      );
 
-    // Adicionar: atualizar lista de horários bloqueados
-    if (selectedDate) {
-      fetchBlockedTimes(selectedDate).then((blocked) => {
-        setBlockedTimes(blocked);
-        const times = clinic.times || [];
-        const finalSlots = times.map((time) => ({
-          time,
-          available: !blocked.includes(time),
-        }));
-        setAvaliableTimeSlots(finalSlots);
-      });
+      const responses = await Promise.all(appointmentPromises);
+      
+      // Check if any appointment failed
+      const failedAppointments = responses.filter(response => response.error);
+      
+      if (failedAppointments.length > 0) {
+        toast.error(`Erro ao criar ${failedAppointments.length} agendamento(s): ${failedAppointments[0].error}`);
+        return;
+      }
+
+      toast.success(`${formData.serviceIds.length} agendamento(s) realizado(s) com sucesso!`);
+      form.reset();
+      setSelectedTime("");
+      setSelectedProfessionalId("");
+      setAvailableProfessionals([]);
+      setIsModalOpen(false);
+      setSelectedServices([]);
+      setShowFloatingModal(false);
+
+      // Adicionar: atualizar lista de horários bloqueados
+      if (selectedDate) {
+        fetchBlockedTimes(selectedDate).then((blocked) => {
+          setBlockedTimes(blocked);
+          const times = clinic.times || [];
+          const finalSlots = times.map((time) => ({
+            time,
+            available: !blocked.includes(time),
+          }));
+          setAvaliableTimeSlots(finalSlots);
+        });
+      }
+    } catch (error) {
+      toast.error("Erro inesperado ao criar agendamentos");
     }
   }
 
@@ -417,11 +436,29 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
   };
 
   const handleScheduleService = (service: ServiceWithCategory) => {
-    setSelectedService(service);
-    form.setValue("serviceId", service.id);
-    form.setValue("date", new Date());
-    setSelectedTime("");
-    setIsModalOpen(true);
+    const currentServices = form.getValues("serviceIds") || [];
+    const isServiceSelected = currentServices.includes(service.id);
+    
+    if (isServiceSelected) {
+      // Remove service if already selected
+      const updatedServices = currentServices.filter(id => id !== service.id);
+      const updatedServiceObjects = selectedServices.filter(s => s.id !== service.id);
+      
+      form.setValue("serviceIds", updatedServices);
+      setSelectedServices(updatedServiceObjects);
+      
+      if (updatedServices.length === 0) {
+        setShowFloatingModal(false);
+      }
+    } else {
+      // Add service if not selected
+      const updatedServices = [...currentServices, service.id];
+      const updatedServiceObjects = [...selectedServices, service];
+      
+      form.setValue("serviceIds", updatedServices);
+      setSelectedServices(updatedServiceObjects);
+      setShowFloatingModal(true);
+    }
   };
 
   // Função para formatar duração em minutos para horas e minutos
@@ -441,7 +478,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pb-32">
       <div className={`h-32 ${clinic.headerColor || "bg-emerald-500"}`}>
         {/* Header com ícones */}
         <div className="flex justify-between items-center p-4 pt-8">
@@ -676,10 +713,14 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                               {/* Botão agendar */}
                               <Button
                                 onClick={() => handleScheduleService(service)}
-                                className="bg-emerald-600 text-white hover:bg-emerald-700 px-6 py-2 rounded-full"
+                                className={`px-6 py-2 rounded-full ${
+                                  (form.getValues("serviceIds") || []).includes(service.id)
+                                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                                }`}
                                 disabled={!clinic.status}
                               >
-                                Agendar
+                                {(form.getValues("serviceIds") || []).includes(service.id) ? "Remover" : "Adicionar"}
                               </Button>
                             </div>
                           </div>
@@ -709,42 +750,69 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Agendar Serviço</DialogTitle>
+            <DialogTitle>Agendar Serviços</DialogTitle>
             <DialogDescription>
-              Preencha os dados abaixo para agendar seu serviço.
+              Preencha os dados abaixo para agendar seus serviços.
             </DialogDescription>
           </DialogHeader>
-          {selectedService && (
-            <div className="flex items-center gap-4 mt-3 p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl border-2 border-emerald-200 shadow-sm">
-              <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-md">
-                <Image
-                  src={getServiceImageUrl(selectedService.image)}
-                  alt={`Imagem do serviço ${selectedService.name}`}
-                  width={64}
-                  height={64}
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex flex-col flex-1">
-                <span className="font-bold text-lg text-emerald-900 mb-1">
-                  {selectedService.name}
-                </span>
-                <div className="flex items-center gap-3 text-emerald-700">
-                  <div className="flex items-center gap-1">
-                    <span className="text-lg font-semibold">
-                      {formatCurrency(selectedService.price / 100)}
-                    </span>
+          {selectedServices.length > 0 && (
+            <div className="space-y-3 mt-3">
+              {selectedServices.map((service) => (
+                <div key={service.id} className="flex items-center gap-4 p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-xl border-2 border-emerald-200 shadow-sm">
+                  <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-md">
+                    <Image
+                      src={getServiceImageUrl(service.image)}
+                      alt={`Imagem do serviço ${service.name}`}
+                      width={64}
+                      height={64}
+                      className="object-cover"
+                    />
                   </div>
-                  <span className="text-emerald-400">•</span>
-                  <span className="font-medium">
-                    {formatDuration(selectedService.duration)}
+                  <div className="flex flex-col flex-1">
+                    <span className="font-bold text-lg text-emerald-900 mb-1">
+                      {service.name}
+                    </span>
+                    <div className="flex items-center gap-3 text-emerald-700">
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-semibold">
+                          {formatCurrency(service.price / 100)}
+                        </span>
+                      </div>
+                      <span className="text-emerald-400">•</span>
+                      <span className="font-medium">
+                        {formatDuration(service.duration)}
+                      </span>
+                    </div>
+                    {service.description && (
+                      <p className="text-sm text-emerald-600 italic">
+                        {service.description}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => handleScheduleService(service)}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-600 hover:bg-red-50"
+                  >
+                    Remover
+                  </Button>
+                </div>
+              ))}
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-blue-900">Total:</span>
+                  <span className="font-bold text-lg text-blue-900">
+                    {formatCurrency(
+                      selectedServices.reduce((total, service) => total + service.price, 0) / 100
+                    )}
                   </span>
                 </div>
-                {selectedService.description && (
-                  <p className="text-sm text-emerald-600 italic">
-                    {selectedService.description}
-                  </p>
-                )}
+                <div className="text-sm text-blue-700 mt-1">
+                  Duração total: {formatDuration(
+                    selectedServices.reduce((total, service) => total + service.duration, 0)
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -838,7 +906,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                 )}
               />
 
-              {selectedServiceId && (
+              {selectedServiceIds && selectedServiceIds.length > 0 && (
                 <div className="space-y-2">
                   <Label>Horários Disponíveis</Label>
                   <div className="bg-gray-100 p-4 rounded-lg">
@@ -893,22 +961,17 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                           return <p>Nenhum horário disponível nesse dia.</p>;
                         }
 
+                        // Calculate total duration for all selected services
+                        const totalDuration = selectedServices.reduce(
+                          (total, service) => total + service.duration,
+                          0
+                        );
+
                         return (
                           <ScheduleTimesLista
                             selectedDate={selectedDate}
                             selectedTime={selectedTime}
-                            requiredSlots={
-                              clinic.services.find(
-                                (service) => service.id === selectedServiceId
-                              )
-                                ? Math.ceil(
-                                    clinic.services.find(
-                                      (service) =>
-                                        service.id === selectedServiceId
-                                    )!.duration / 30
-                                  )
-                                : 1
-                            }
+                            requiredSlots={Math.ceil(totalDuration / 30)}
                             onSelectTime={(time) => setSelectedTime(time)}
                             blockedTimes={blockedTimes}
                             availableTimeSlots={avaliableTimeSlots}
@@ -962,7 +1025,8 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                   variant="outline"
                   onClick={() => {
                     setIsModalOpen(false);
-                    setSelectedService(null);
+                    setSelectedServices([]);
+                    setShowFloatingModal(false);
                     form.reset();
                     setSelectedTime("");
                   }}
@@ -978,16 +1042,92 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                     !watch("name") ||
                     !watch("phone") ||
                     !selectedTime ||
-                    !selectedProfessionalId
+                    !selectedProfessionalId ||
+                    !watch("serviceIds") ||
+                    watch("serviceIds").length === 0
                   }
                 >
-                  Confirmar Agendamento
+                  Confirmar Agendamentos
                 </Button>
               </div>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Modal at Bottom */}
+      {showFloatingModal && selectedServices.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-2xl animate-in slide-in-from-bottom-full duration-300">
+          <div className="max-w-2xl mx-auto p-4">
+            <div className="space-y-3">
+              {selectedServices.map((service, index) => (
+                <div 
+                  key={service.id}
+                  className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200 animate-in fade-in slide-in-from-right-5 duration-500"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
+                    <Image
+                      src={getServiceImageUrl(service.image)}
+                      alt={`Imagem do serviço ${service.name}`}
+                      width={48}
+                      height={48}
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-emerald-900 text-sm">
+                      {service.name}
+                    </h4>
+                    <div className="flex items-center gap-2 text-xs text-emerald-700">
+                      <span className="font-medium">
+                        {formatCurrency(service.price / 100)}
+                      </span>
+                      <span>•</span>
+                      <span>{formatDuration(service.duration)}</span>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleScheduleService(service)}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-600 hover:bg-red-50 h-8 px-2"
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+              
+              {/* Total and Action Button */}
+              <div className="flex items-center justify-between pt-2 border-t border-emerald-200">
+                <div>
+                  <p className="font-semibold text-emerald-900">
+                    Total: {formatCurrency(
+                      selectedServices.reduce((total, service) => total + service.price, 0) / 100
+                    )}
+                  </p>
+                  <p className="text-xs text-emerald-700">
+                    {selectedServices.length} serviço(s) • {formatDuration(
+                      selectedServices.reduce((total, service) => total + service.duration, 0)
+                    )}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    form.setValue("date", new Date());
+                    setSelectedTime("");
+                    setShowFloatingModal(false);
+                    setIsModalOpen(true);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2"
+                >
+                  {selectedServices.length === 1 ? 'Escolher Data' : 'Finalizar'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

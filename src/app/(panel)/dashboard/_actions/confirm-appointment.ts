@@ -7,6 +7,78 @@ interface ConfirmAppointmentParams {
   appointmentId: string;
 }
 
+interface ConfirmMultipleAppointmentsParams {
+  appointmentIds: string[];
+}
+
+export async function confirmMultipleAppointments({ appointmentIds }: ConfirmMultipleAppointmentsParams) {
+  try {
+    const session = await getSession();
+    if (!session?.user?.id) {
+      return { error: "Usuário não autenticado" };
+    }
+
+    // Get all appointment details
+    const appointments = await prisma.appointment.findMany({
+      where: { 
+        id: { in: appointmentIds },
+        userId: session.user.id 
+      },
+      include: {
+        service: true,
+        user: true,
+        professional: true,
+      },
+    });
+
+    if (appointments.length === 0) {
+      return { error: "Nenhum agendamento encontrado" };
+    }
+
+    // Get the clinic's confirmation message
+    const whatsappMessage = await prisma.whatsappMessage.findUnique({
+      where: { userId: session.user.id },
+    });
+
+    if (!whatsappMessage?.confirmationMessage) {
+      return { error: "Mensagem de confirmação não cadastrada. Configure nas configurações do perfil." };
+    }
+
+    // Use the first appointment for client details
+    const primaryAppointment = appointments[0];
+    
+    // Build services list and calculate total value
+    const servicesList = appointments.map(apt => apt.service.name).join(', ');
+    const totalValue = appointments.reduce((sum, apt) => sum + apt.service.price, 0);
+
+    // Replace placeholders in the message
+    const personalizedMessage = whatsappMessage.confirmationMessage
+      .replace(/\[Nome-cliente\]/g, primaryAppointment.name)
+      .replace(/\[servico\]/g, servicesList)
+      .replace(/\[profissional\]/g, primaryAppointment.professional?.name || 'Não informado')
+      .replace(/\[data\]/g, new Date(primaryAppointment.appointmentDate).toLocaleDateString('pt-BR'))
+      .replace(/\[hora\]/g, primaryAppointment.time)
+      .replace(/\[valor\]/g, (totalValue / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+
+    // Format phone number for WhatsApp
+    const phoneNumber = primaryAppointment.phone.replace(/\D/g, '');
+    const formattedPhone = phoneNumber.startsWith('55') ? phoneNumber : `55${phoneNumber}`;
+    
+    // Create WhatsApp URL
+    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(personalizedMessage)}`;
+
+    return { 
+      data: "Mensagem de confirmação preparada",
+      whatsappUrl,
+      message: personalizedMessage
+    };
+
+  } catch (error) {
+    console.error("Erro ao confirmar agendamentos:", error);
+    return { error: "Erro ao confirmar agendamentos" };
+  }
+}
+
 export async function confirmAppointment({ appointmentId }: ConfirmAppointmentParams) {
   try {
     const session = await getSession();
