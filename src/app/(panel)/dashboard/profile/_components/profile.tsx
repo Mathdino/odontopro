@@ -87,7 +87,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
     user.times ?? []
   );
   const [selectedWorkingDays, setSelectedWorkingDays] = useState<string[]>(
-    user.workingDays ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]
+    (user as any).workingDays ?? ["monday", "tuesday", "wednesday", "thursday", "friday"]
   );
 
   // Estados para mensagens do WhatsApp - iniciar vazio para evitar hidratação
@@ -303,7 +303,7 @@ export function ProfileContent({ user }: ProfileContentProps) {
     status: user.status,
     timeZone: user.timezone,
     headerColor: user.headerColor,
-    pix: user.pix,
+    pix: (user as any).pix,
   });
 
   function generateTimeSlots(): string[] {

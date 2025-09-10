@@ -15,6 +15,7 @@ import { Prisma } from "@prisma/client";
 import { Check, Eye, Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cancelAppointment } from "../../_actions/cancel-appointment";
+import { confirmAppointment } from "../../_actions/confirm-appointment";
 import { toast } from "sonner";
 
 type AppointmentWithService = Prisma.AppointmentGetPayload<{
@@ -59,7 +60,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
     refetchInterval: 25000,
   });
 
-  const occupantMap: Record<string, AppointmentWithService[]> = {};
+  const occupantMap: Record<string, AppointmentWithService> = {};
 
   if (data && data.length > 0) {
     for (const appointment of data) {
@@ -92,6 +93,29 @@ export function AppointentsList({ times }: AppointentsListProps) {
     queryClient.invalidateQueries({ queryKey: ["get-appointments"] });
     await refetch();
     toast.success(response.data);
+
+    // If there's a WhatsApp URL, open it
+    if (response.whatsappUrl) {
+      window.open(response.whatsappUrl, '_blank');
+    }
+  }
+
+  async function handleConfirmAppointment(appointmentId: string) {
+    const response = await confirmAppointment({
+      appointmentId,
+    });
+
+    if (response.error) {
+      toast.error(response.error);
+      return;
+    }
+
+    toast.success(response.data);
+
+    // If there's a WhatsApp URL, open it
+    if (response.whatsappUrl) {
+      window.open(response.whatsappUrl, '_blank');
+    }
   }
 
   return (
@@ -136,6 +160,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
 
                         <Button
                           className="bg-emerald-500 text-white hover:bg-emerald-400"
+                          onClick={() => handleConfirmAppointment(occupant.id)}
                           size="icon"
                         >
                           <Check className="w-4 h-4" />

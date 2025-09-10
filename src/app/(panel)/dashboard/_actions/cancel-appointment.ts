@@ -29,16 +29,62 @@ export async function cancelAppointment(formData: FormSchema) {
   }
 
   try {
+    // Get the appointment details before deleting
+    const appointment = await prisma.appointment.findUnique({
+      where: {
+        id: formData.appointmentId,
+        userId: session.user?.id,
+      },
+      include: {
+        service: true,
+      },
+    });
+
+    if (!appointment) {
+      return {
+        error: "Agendamento não encontrado",
+      };
+    }
+
+    // Get the clinic's cancellation message
+    const whatsappMessage = await prisma.whatsappMessage.findUnique({
+      where: { userId: session.user.id },
+    });
+
+    let whatsappUrl = null;
+    let personalizedMessage = null;
+
+    if (whatsappMessage?.cancellationMessage) {
+      // Replace placeholders in the message
+      personalizedMessage = whatsappMessage.cancellationMessage
+        .replace(/\[Nome-cliente\]/g, appointment.name)
+        .replace(/\[servico\]/g, appointment.service.name)
+        .replace(/\[data\]/g, new Date(appointment.appointmentDate).toLocaleDateString('pt-BR'))
+        .replace(/\[hora\]/g, appointment.time)
+        .replace(/\[valor\]/g, (appointment.service.price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+
+      // Format phone number for WhatsApp
+      const phoneNumber = appointment.phone.replace(/\D/g, '');
+      const formattedPhone = phoneNumber.startsWith('55') ? phoneNumber : `55${phoneNumber}`;
+      
+      // Create WhatsApp URL
+      whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(personalizedMessage)}`;
+    }
+
+    // Delete the appointment
     await prisma.appointment.delete({
       where: {
         id: formData.appointmentId,
         userId: session.user?.id,
       },
     });
+    
     revalidatePath("/dashboard");
 
     return {
       data: "Agendamento cancelado com sucesso !",
+      whatsappUrl,
+      message: personalizedMessage,
     };
   } catch (err) {
     return {
