@@ -37,6 +37,7 @@ export async function cancelAppointment(formData: FormSchema) {
       },
       include: {
         service: true,
+        professional: true,
       },
     });
 
@@ -59,6 +60,7 @@ export async function cancelAppointment(formData: FormSchema) {
       personalizedMessage = whatsappMessage.cancellationMessage
         .replace(/\[Nome-cliente\]/g, appointment.name)
         .replace(/\[servico\]/g, appointment.service.name)
+        .replace(/\[profissional\]/g, appointment.professional?.name || 'Não informado')
         .replace(/\[data\]/g, new Date(appointment.appointmentDate).toLocaleDateString('pt-BR'))
         .replace(/\[hora\]/g, appointment.time)
         .replace(/\[valor\]/g, (appointment.service.price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));

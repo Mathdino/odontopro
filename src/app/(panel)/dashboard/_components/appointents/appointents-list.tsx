@@ -21,6 +21,7 @@ import { toast } from "sonner";
 type AppointmentWithService = Prisma.AppointmentGetPayload<{
   include: {
     service: true;
+    professional: true;
   };
 }>;
 
@@ -60,7 +61,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
     refetchInterval: 25000,
   });
 
-  const occupantMap: Record<string, AppointmentWithService> = {};
+  const occupantMap: Record<string, AppointmentWithService[]> = {};
 
   if (data && data.length > 0) {
     for (const appointment of data) {
@@ -73,7 +74,19 @@ export function AppointentsList({ times }: AppointentsListProps) {
           const slotIndex = startIndex + i;
 
           if (slotIndex < times.length) {
-            occupantMap[times[slotIndex]] = appointment;
+            const timeSlot = times[slotIndex];
+            if (!occupantMap[timeSlot]) {
+              occupantMap[timeSlot] = [];
+            }
+            // Only add to the first slot to avoid duplicates
+            if (i === 0) {
+              occupantMap[timeSlot].push(appointment);
+            } else {
+              // For subsequent slots, just mark as occupied but don't duplicate the appointment
+              if (occupantMap[timeSlot].length === 0) {
+                occupantMap[timeSlot] = [appointment];
+              }
+            }
           }
         }
       }
@@ -134,48 +147,67 @@ export function AppointentsList({ times }: AppointentsListProps) {
             <p>Carregando Agenda...</p>
           ) : (
             times.map((slot) => {
-              const occupant = occupantMap[slot];
+              const occupants = occupantMap[slot];
 
-              if (occupant) {
+              if (occupants && occupants.length > 0) {
                 return (
-                  <div
-                    key={slot}
-                    className="flex items-center py-2 border-t last:border-b"
-                  >
-                    <div className="w-16 text-sm font-semibold">{slot}</div>
-                    <div className="flex justify-between border border-gray-300 bg-gray-100 py-4 px-4 w-full">
-                    <div className="flex-1 text-sm">
-                      <div className="font-semibold mb-1">{occupant.name}</div>
-                      <div className="text-sm flex items-center text-gray-500">
-                        <Phone className="w-4 h-4 mr-2" />
-                        {occupant.phone}
-                      </div>
-                    </div>
-
-                    <div className="ml-auto">
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-
-                        <Button
-                          className="bg-emerald-500 text-white hover:bg-emerald-400"
-                          onClick={() => handleConfirmAppointment(occupant.id)}
-                          size="icon"
+                  <div key={slot} className="border-t last:border-b">
+                    <div className="w-16 text-sm font-semibold py-2">{slot}</div>
+                    {occupants.map((occupant) => {
+                      // Only show the appointment card if this is the starting time slot
+                      const appointmentStartTime = occupant.time;
+                      if (appointmentStartTime !== slot) {
+                        return null;
+                      }
+                      
+                      return (
+                        <div
+                          key={occupant.id}
+                          className="flex justify-between border border-gray-300 bg-gray-100 py-4 px-4 mb-2 last:mb-0 items-center"
                         >
-                          <Check className="w-4 h-4" />
-                        </Button>
+                          <div className="flex-1 text-sm">
+                            <div className="font-semibold mb-3">{occupant.name}</div>
+                            <div className="text-sm text-gray-600 mb-1">
+                              <strong>Telefone:</strong> 
+                              {occupant.phone || 'Não informado'}
+                            </div>
+                            <div className="text-sm text-gray-600 mb-1">
+                              <strong>Profissional:</strong> {occupant.professional?.name || 'Não informado'}
+                            </div>
+                            <div className="text-sm text-gray-600 mb-1">
+                              <strong>Serviço:</strong> {occupant.service.name}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              <strong>Horário:</strong> {occupant.time}
+                            </div>
+                          </div>
 
-                        <Button
-                          className="bg-red-500 text-white hover:bg-red-400"
-                          onClick={() => handleCancelAppointement(occupant.id)}
-                          size="icon"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    </div>
+                          <div className="ml-auto">
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="icon">
+                                <Eye className="w-4 h-4" />
+                              </Button>
+
+                              <Button
+                                className="bg-emerald-500 text-white hover:bg-emerald-400"
+                                onClick={() => handleConfirmAppointment(occupant.id)}
+                                size="icon"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+
+                              <Button
+                                className="bg-red-500 text-white hover:bg-red-400"
+                                onClick={() => handleCancelAppointement(occupant.id)}
+                                size="icon"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               }

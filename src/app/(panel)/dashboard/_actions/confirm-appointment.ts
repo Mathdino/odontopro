@@ -20,6 +20,7 @@ export async function confirmAppointment({ appointmentId }: ConfirmAppointmentPa
       include: {
         service: true,
         user: true,
+        professional: true,
       },
     });
 
@@ -45,6 +46,7 @@ export async function confirmAppointment({ appointmentId }: ConfirmAppointmentPa
     const personalizedMessage = whatsappMessage.confirmationMessage
       .replace(/\[Nome-cliente\]/g, appointment.name)
       .replace(/\[servico\]/g, appointment.service.name)
+      .replace(/\[profissional\]/g, appointment.professional?.name || 'Não informado')
       .replace(/\[data\]/g, new Date(appointment.appointmentDate).toLocaleDateString('pt-BR'))
       .replace(/\[hora\]/g, appointment.time)
       .replace(/\[valor\]/g, (appointment.service.price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
