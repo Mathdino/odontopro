@@ -21,6 +21,7 @@ interface FinanceChartProps {
     from: Date | undefined;
     to: Date | undefined;
   };
+  professionalId?: string;
 }
 
 interface ChartData {
@@ -33,6 +34,7 @@ export function FinanceChart({
   userId,
   filter,
   customDateRange,
+  professionalId,
 }: FinanceChartProps) {
   const [data, setData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,8 @@ export function FinanceChart({
         const chartData = await getFinancialChartData(
           userId,
           filter,
-          customDateRange
+          customDateRange,
+          professionalId
         );
         setData(chartData);
       } catch (error) {
@@ -56,7 +59,7 @@ export function FinanceChart({
     }
 
     fetchChartData();
-  }, [userId, filter, customDateRange]);
+  }, [userId, filter, customDateRange, professionalId]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

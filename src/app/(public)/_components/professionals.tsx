@@ -38,7 +38,7 @@ export function Professionals() {
                 </div>
 
                 <Link
-                  href="/clinica/cmf1h9z080000orv8bfkdix0u"
+                  href="/clinica/cmffp40d00000or98idedv2e4"
                   className="w-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center py-2 rounded-md text-sm font-medium md:text-base"
                 >
                   Agendar Horário

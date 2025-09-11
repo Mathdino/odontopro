@@ -35,6 +35,18 @@ export async function confirmMultipleAppointments({ appointmentIds }: ConfirmMul
       return { error: "Nenhum agendamento encontrado" };
     }
 
+    // Update appointments status to CONFIRMED
+    await prisma.appointment.updateMany({
+      where: {
+        id: { in: appointmentIds },
+        userId: session.user.id,
+      },
+      data: {
+        status: "CONFIRMED",
+        confirmedAt: new Date(),
+      },
+    });
+
     // Get the clinic's confirmation message
     const whatsappMessage = await prisma.whatsappMessage.findUnique({
       where: { userId: session.user.id },
@@ -68,7 +80,7 @@ export async function confirmMultipleAppointments({ appointmentIds }: ConfirmMul
     const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(personalizedMessage)}`;
 
     return { 
-      data: "Mensagem de confirmação preparada",
+      data: "Agendamentos confirmados com sucesso",
       whatsappUrl,
       message: personalizedMessage
     };
@@ -105,6 +117,15 @@ export async function confirmAppointment({ appointmentId }: ConfirmAppointmentPa
       return { error: "Não autorizado a confirmar este agendamento" };
     }
 
+    // Update appointment status to CONFIRMED
+    await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        status: "CONFIRMED",
+        confirmedAt: new Date(),
+      },
+    });
+
     // Get the clinic's confirmation message
     const whatsappMessage = await prisma.whatsappMessage.findUnique({
       where: { userId: session.user.id },
@@ -132,7 +153,7 @@ export async function confirmAppointment({ appointmentId }: ConfirmAppointmentPa
 
     // Open WhatsApp in a new window (this will be handled on the client side)
     return { 
-      data: "Mensagem de confirmação preparada",
+      data: "Agendamento confirmado com sucesso",
       whatsappUrl,
       message: personalizedMessage
     };

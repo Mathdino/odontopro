@@ -13,6 +13,7 @@ interface MetricsCardsProps {
     from: Date | undefined;
     to: Date | undefined;
   };
+  professionalId?: string;
 }
 
 interface Metrics {
@@ -25,6 +26,7 @@ export function MetricsCards({
   userId,
   filter,
   customDateRange,
+  professionalId,
 }: MetricsCardsProps) {
   const [metrics, setMetrics] = useState<Metrics>({
     grossRevenue: 0,
@@ -37,7 +39,7 @@ export function MetricsCards({
     async function fetchMetrics() {
       setLoading(true);
       try {
-        const data = await getFinancialMetrics(userId, filter, customDateRange);
+        const data = await getFinancialMetrics(userId, filter, customDateRange, professionalId);
         setMetrics(data);
       } catch (error) {
         console.error("Erro ao carregar métricas:", error);
@@ -52,7 +54,7 @@ export function MetricsCards({
     }
 
     fetchMetrics();
-  }, [userId, filter, customDateRange]);
+  }, [userId, filter, customDateRange, professionalId]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

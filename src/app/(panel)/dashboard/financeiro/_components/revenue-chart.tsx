@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterType } from "./financeiro-content";
-import { getRevenueChartData } from "../_data-access/get-financial-metrics";
+import { getRevenueChartData, getFinancialMetrics } from "../_data-access/get-financial-metrics";
 
 interface RevenueChartProps {
   userId: string;
@@ -21,6 +21,7 @@ interface RevenueChartProps {
     from: Date | undefined;
     to: Date | undefined;
   };
+  professionalId?: string;
 }
 
 interface ChartData {
@@ -32,30 +33,43 @@ export function RevenueChart({
   userId,
   filter,
   customDateRange,
+  professionalId,
 }: RevenueChartProps) {
   const [data, setData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [financialMetrics, setFinancialMetrics] = useState({ grossRevenue: 0 });
 
   useEffect(() => {
-    async function fetchChartData() {
+    async function fetchData() {
       setLoading(true);
       try {
-        const chartData = await getRevenueChartData(
-          userId,
-          filter,
-          customDateRange
-        );
+        const [chartData, metricsData] = await Promise.all([
+          getRevenueChartData(
+            userId,
+            filter,
+            customDateRange,
+            professionalId
+          ),
+          getFinancialMetrics(
+            userId,
+            filter,
+            customDateRange,
+            professionalId
+          )
+        ]);
         setData(chartData);
+        setFinancialMetrics(metricsData);
       } catch (error) {
         console.error("Erro ao carregar dados do gráfico de receita:", error);
         setData([]);
+        setFinancialMetrics({ grossRevenue: 0 });
       } finally {
         setLoading(false);
       }
     }
 
-    fetchChartData();
-  }, [userId, filter, customDateRange]);
+    fetchData();
+  }, [userId, filter, customDateRange, professionalId]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -146,7 +160,6 @@ export function RevenueChart({
 
   // Calcular totais
   const totalRevenue = data.reduce((sum, item) => sum + item.receita, 0);
-  const profit = totalRevenue * 0.7; // Assumindo 70% de lucro
 
   if (loading) {
     return (
@@ -208,7 +221,7 @@ export function RevenueChart({
         <div className="flex justify-center items-center">
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Lucro Total</p>
-            <p className="text-lg font-semibold">{formatCurrency(profit)}</p>
+            <p className="text-lg font-semibold">{formatCurrency(financialMetrics.grossRevenue)}</p>
           </div>
         </div>
       </CardContent>

@@ -66,6 +66,11 @@ export const GET = auth(async function GET(request) {
       include: {
         service: true,
         professional: true,
+        appointmentProducts: {
+          include: {
+            product: true,
+          },
+        },
       },
     });
 

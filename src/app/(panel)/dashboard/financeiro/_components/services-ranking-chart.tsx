@@ -7,9 +7,17 @@ import {
   Pie,
   Cell,
   Tooltip,
-  Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Info } from "lucide-react";
 import { FilterType } from "./financeiro-content";
 import { getServicesRankingData } from "../_data-access/get-financial-metrics";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -21,6 +29,7 @@ interface ServicesRankingChartProps {
     from: Date | undefined;
     to: Date | undefined;
   };
+  professionalId?: string;
 }
 
 interface RankingData {
@@ -34,6 +43,7 @@ export function ServicesRankingChart({
   userId,
   filter,
   customDateRange,
+  professionalId,
 }: ServicesRankingChartProps) {
   const [data, setData] = useState<RankingData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +55,8 @@ export function ServicesRankingChart({
         const rankingData = await getServicesRankingData(
           userId,
           filter,
-          customDateRange
+          customDateRange,
+          professionalId
         );
         setData(rankingData);
       } catch (error) {
@@ -57,7 +68,7 @@ export function ServicesRankingChart({
     }
 
     fetchRankingData();
-  }, [userId, filter, customDateRange]);
+  }, [userId, filter, customDateRange, professionalId]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -78,22 +89,40 @@ export function ServicesRankingChart({
     return null;
   };
 
-  const CustomLegend = ({ payload }: any) => {
+  const LegendModal = () => {
     return (
-      <div className="flex flex-wrap justify-center gap-4 mt-4">
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            ></div>
-            <span className="text-sm text-muted-foreground">
-              {entry.value} (
-              {data.find((d) => d.name === entry.value)?.value || 0})
-            </span>
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            Ver Legenda
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Legenda dos Serviços</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {data.map((entry, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: entry.fill }}
+                  ></div>
+                  <span className="font-medium">{entry.name}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold">{entry.value} serviços</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(entry.revenue)}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </DialogContent>
+      </Dialog>
     );
   };
 
@@ -112,13 +141,16 @@ export function ServicesRankingChart({
     );
   }
 
-  // Calcular total da receita
-  const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
+  // Calcular total de serviços
+  const totalServices = data.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Serviços</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Serviços</CardTitle>
+          {data.length > 0 && <LegendModal />}
+        </div>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
@@ -133,48 +165,43 @@ export function ServicesRankingChart({
             <div className="w-full h-px bg-border/20 my-4"></div>
 
             {/* Total */}
-            <div className="flex justify-center items-center">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-lg font-semibold">{formatCurrency(0)}</p>
-              </div>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Total de Serviços</p>
+              <p className="text-lg font-semibold">0</p>
             </div>
           </>
         ) : (
           <>
-            <div className="h-[150px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend content={<CustomLegend />} />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="h-[200px] flex justify-center">
+              <div className="w-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             {/* Linha separadora transparente */}
             <div className="w-full h-px bg-border/20 my-4"></div>
 
             {/* Total */}
-            <div className="flex justify-center items-center">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-lg font-semibold">
-                  {formatCurrency(totalRevenue)}
-                </p>
-              </div>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Total de Serviços</p>
+              <p className="text-lg font-semibold">{totalServices}</p>
             </div>
           </>
         )}
