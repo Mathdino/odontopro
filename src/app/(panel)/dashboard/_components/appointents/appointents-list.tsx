@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { DialogAppointment } from "./dialog-appointment";
+import { ButtonDate } from "./button-date";
 
 export type AppointmentWithService = Prisma.AppointmentGetPayload<{
   include: {
@@ -271,7 +272,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
             Agendamentos
           </CardTitle>
 
-          <button>DATA</button>
+          <ButtonDate />
         </CardHeader>
 
         <CardContent>
