@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { Appointment, Professional } from "@prisma/client";
 
 //Buscar agendamentos em uma data específica
 export async function GET(request: NextRequest) {
@@ -117,6 +118,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // @ts-ignore - Prisma types might not be updated yet
     const appointments = await prisma.appointment.findMany({
       where: {
         userId: userId,
@@ -126,56 +128,90 @@ export async function GET(request: NextRequest) {
         },
       },
       include: {
-        service: true,
+        // @ts-ignore - Prisma types might not be updated yet
+        appointmentServices: {
+          include: {
+            service: true,
+          },
+        },
+        professional: true,
       },
     });
 
     console.log("Agendamentos encontrados:", appointments.length);
 
-    // Agrupar agendamentos por horário
-    const appointmentsByTime = new Map<string, any[]>();
+    // Criar um mapa de horários bloqueados por profissional
+    const professionalBlockedSlots = new Map<string, Set<string>>();
+    
+    // Inicializar conjuntos para cada profissional
+    professionals.forEach(prof => {
+      professionalBlockedSlots.set(prof.id, new Set<string>());
+    });
 
+    // Para cada agendamento, bloquear os slots apropriados com base na duração TOTAL dos serviços
     for (const appointment of appointments) {
-      const timeSlot = appointment.time;
-      if (!appointmentsByTime.has(timeSlot)) {
-        appointmentsByTime.set(timeSlot, []);
+      const professionalId = appointment.professionalId;
+      const startTime = appointment.time;
+      const totalDuration = (appointment as any).totalDuration; // duração total em minutos
+      
+      // Se não tiver profissional associado, pular
+      if (!professionalId) continue;
+      
+      // Obter os slots bloqueados para este profissional
+      const blockedSlots = professionalBlockedSlots.get(professionalId);
+      if (!blockedSlots) continue;
+      
+      // Calcular quantos slots de 30 minutos o serviço ocupa
+      const slotsToBlock = Math.ceil(totalDuration / 30);
+      
+      // Encontrar o índice do horário de início
+      const timeSlots = user.times || [];
+      const startIndex = timeSlots.indexOf(startTime);
+      
+      // Se o horário de início não for encontrado, pular
+      if (startIndex === -1) continue;
+      
+      // Bloquear os slots consecutivos
+      for (let i = 0; i < slotsToBlock && startIndex + i < timeSlots.length; i++) {
+        const slotTime = timeSlots[startIndex + i];
+        blockedSlots.add(slotTime);
       }
-      appointmentsByTime.get(timeSlot)!.push(appointment);
     }
 
-    // Determinar horários bloqueados (ÚNICA declaração)
-    const blockedSlots = new Set<string>();
-
-    // Lógica de bloqueio inteligente
-    for (const timeSlot of user.times) {
-      const appointmentsInSlot = appointmentsByTime.get(timeSlot) || [];
-
+    // Determinar horários bloqueados globais (quando todos os profissionais estão ocupados)
+    const globalBlockedSlots = new Set<string>();
+    const timeSlots = user.times || [];
+    
+    for (const timeSlot of timeSlots) {
       // Verificar quantos profissionais trabalham neste horário
       const professionalsWorkingInSlot = professionals.filter((prof) =>
         prof.availableTimes.includes(timeSlot)
       );
-
-      // Contar profissionais ocupados neste horário
-      const occupiedProfessionals = new Set(
-        appointmentsInSlot.map((apt) => apt.professionalId).filter(Boolean)
-      );
-
+      
+      // Contar profissionais ocupados neste horário (considerando bloqueios por duração)
+      let occupiedProfessionalsCount = 0;
+      for (const prof of professionalsWorkingInSlot) {
+        const profBlockedSlots = professionalBlockedSlots.get(prof.id);
+        if (profBlockedSlots && profBlockedSlots.has(timeSlot)) {
+          occupiedProfessionalsCount++;
+        }
+      }
+      
       console.log(`Horário ${timeSlot}:`);
       console.log(
         `- Profissionais que trabalham: ${professionalsWorkingInSlot.length}`
       );
-      console.log(`- Profissionais ocupados: ${occupiedProfessionals.size}`);
-      console.log(`- Agendamentos: ${appointmentsInSlot.length}`);
-
+      console.log(`- Profissionais ocupados: ${occupiedProfessionalsCount}`);
+      
       // Bloquear horário apenas se TODOS os profissionais que trabalham neste horário estiverem ocupados
       if (
         professionalsWorkingInSlot.length > 0 &&
-        occupiedProfessionals.size >= professionalsWorkingInSlot.length
+        occupiedProfessionalsCount >= professionalsWorkingInSlot.length
       ) {
         console.log(
           `- BLOQUEANDO horário ${timeSlot} - todos profissionais ocupados`
         );
-        blockedSlots.add(timeSlot);
+        globalBlockedSlots.add(timeSlot);
       } else {
         console.log(
           `- Horário ${timeSlot} disponível - há profissionais livres`
@@ -183,16 +219,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const blockedTimes = Array.from(blockedSlots);
+    const blockedTimes = Array.from(globalBlockedSlots);
     console.log("blockedTimes final:", blockedTimes);
     console.log(
       "Agendamentos:",
-      appointments.map((apt) => ({
+      appointments.map((apt: any) => ({
         id: apt.id,
         time: apt.time,
         appointmentDate: apt.appointmentDate,
-        serviceName: apt.service.name,
-        duration: apt.service.duration,
+        serviceNames: (apt as any).appointmentServices.map((as: any) => as.service.name),
+        totalDuration: (apt as any).totalDuration,
+        professionalId: apt.professionalId,
       }))
     );
 

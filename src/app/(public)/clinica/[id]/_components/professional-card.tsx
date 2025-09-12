@@ -16,12 +16,14 @@ interface ProfessionalCardProps {
   professional: Professional;
   isSelected: boolean;
   onSelect: (professionalId: string) => void;
+  isAvailable?: boolean; // Add availability status
 }
 
 export function ProfessionalCard({
   professional,
   isSelected,
   onSelect,
+  isAvailable = true, // Default to available
 }: ProfessionalCardProps) {
   return (
     <div
@@ -52,7 +54,9 @@ export function ProfessionalCard({
         <div className="flex-1">
           <h4 className="font-medium text-sm">{professional.name}</h4>
           <div className="flex items-center gap-2 text-xs text-gray-600">
-            <span>Disponível</span>
+            <span className={isAvailable ? "text-green-600" : "text-red-600"}>
+              {isAvailable ? "Disponível" : "Ocupado"}
+            </span>
           </div>
         </div>
 

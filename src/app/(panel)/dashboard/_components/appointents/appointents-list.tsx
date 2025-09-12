@@ -32,6 +32,12 @@ export type AppointmentWithService = Prisma.AppointmentGetPayload<{
   include: {
     service: true;
     professional: true;
+    // @ts-ignore - Prisma types might not be updated yet
+    appointmentServices: {
+      include: {
+        service: true;
+      };
+    };
     appointmentProducts: {
       include: {
         product: true;
@@ -94,6 +100,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
     }
   };
 
+  // Fetch appointments
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["get-appointments", date],
     queryFn: async () => {
@@ -120,8 +127,32 @@ export function AppointentsList({ times }: AppointentsListProps) {
     refetchInterval: 25000,
   });
 
+  // Fetch professionals
+  const { data: professionalsData, isLoading: professionalsLoading } = useQuery({
+    queryKey: ["get-professionals"],
+    queryFn: async () => {
+      const response = await fetch("/api/financeiro/professionals");
+      const json = (await response.json());
+      
+      if (!response.ok) {
+        return [];
+      }
+      return json;
+    },
+    staleTime: 60000,
+  });
+
+  // Create a map of occupied slots by professional
+  const professionalOccupancyMap: Record<string, Set<string>> = {};
   const occupantMap: Record<string, AppointmentWithService[]> = {};
   const clientGroupMap: Record<string, AppointmentWithService[]> = {};
+
+  // Initialize professional occupancy map
+  if (professionalsData && professionalsData.length > 0) {
+    professionalsData.forEach((professional: any) => {
+      professionalOccupancyMap[professional.id] = new Set<string>();
+    });
+  }
 
   if (data && data.length > 0) {
     // First, group appointments by client (name + phone + time)
@@ -137,8 +168,20 @@ export function AppointentsList({ times }: AppointentsListProps) {
     Object.values(clientGroupMap).forEach((clientAppointments) => {
       // Use the first appointment to determine time slots
       const primaryAppointment = clientAppointments[0];
+      // Calculate total duration from all services in the appointment
       const totalDuration = clientAppointments.reduce(
-        (sum, apt) => sum + apt.service.duration,
+        (sum, apt) => {
+          // Check if appointment has appointmentServices relation
+          if ((apt as any).appointmentServices && (apt as any).appointmentServices.length > 0) {
+            // Sum duration from all services in appointmentServices
+            return sum + (apt as any).appointmentServices.reduce(
+              (serviceSum: number, as: any) => serviceSum + as.service.duration,
+              0
+            );
+          }
+          // Fallback to totalDuration or single service duration
+          return sum + (apt as any).totalDuration || apt.service.duration;
+        },
         0
       );
       const requiredSlots = Math.ceil(totalDuration / 30);
@@ -146,17 +189,23 @@ export function AppointentsList({ times }: AppointentsListProps) {
       const startIndex = times.indexOf(primaryAppointment.time);
 
       if (startIndex !== -1) {
+        // Mark all slots as occupied for the professional
         for (let i = 0; i < requiredSlots; i++) {
           const slotIndex = startIndex + i;
-
           if (slotIndex < times.length) {
             const timeSlot = times[slotIndex];
-            if (!occupantMap[timeSlot]) {
-              occupantMap[timeSlot] = [];
-            }
-            // Only add to the first slot to avoid duplicates
+          
+            // Add appointment to occupantMap for the first slot only
             if (i === 0) {
+              if (!occupantMap[timeSlot]) {
+                occupantMap[timeSlot] = [];
+              }
               occupantMap[timeSlot].push(...clientAppointments);
+            }
+            
+            // Mark this slot as occupied by this professional (if available)
+            if (primaryAppointment.professionalId && professionalOccupancyMap[primaryAppointment.professionalId]) {
+              professionalOccupancyMap[primaryAppointment.professionalId].add(timeSlot);
             }
           }
         }
@@ -296,7 +345,7 @@ export function AppointentsList({ times }: AppointentsListProps) {
                           AppointmentWithService[]
                         > = {};
 
-                        occupants.forEach((occupant) => {
+                        occupants.forEach((occupant: AppointmentWithService) => {
                           if (occupant.time === slot) {
                             // Only show appointments that start at this time slot
                             const clientKey = `${occupant.name}-${occupant.phone}-${occupant.time}`;
@@ -310,9 +359,30 @@ export function AppointentsList({ times }: AppointentsListProps) {
                         return Object.values(clientGroups).map(
                           (clientAppointments) => {
                             const primaryAppointment = clientAppointments[0];
-                            const allServices = clientAppointments.map(
-                              (apt) => apt.service.name
-                            );
+                            
+                            // Get all service names for this client
+                            let allServices: string[] = [];
+                            let totalDuration = 0;
+                            let totalPrice = 0;
+                            
+                            // Process each appointment for this client
+                            clientAppointments.forEach(apt => {
+                              // Check if appointment has appointmentServices relation
+                              if ((apt as any).appointmentServices && (apt as any).appointmentServices.length > 0) {
+                                // Get services from appointmentServices
+                                (apt as any).appointmentServices.forEach((as: any) => {
+                                  allServices.push(as.service.name);
+                                  totalDuration += as.service.duration;
+                                  totalPrice += as.service.price;
+                                });
+                              } else {
+                                // Fallback to single service
+                                allServices.push(apt.service.name);
+                                totalDuration += (apt as any).totalDuration || apt.service.duration;
+                                totalPrice += (apt as any).totalPrice || apt.service.price;
+                              }
+                            });
+                            
                             const servicesText =
                               allServices.length > 1
                                 ? allServices.join(" + ")
@@ -342,16 +412,38 @@ export function AppointentsList({ times }: AppointentsListProps) {
                                   </div>
                                   <div className="text-sm text-gray-600 mb-1">
                                     <strong>
-                                      {clientAppointments.length > 1
+                                      {allServices.length > 1
                                         ? "Serviços"
                                         : "Serviço"}
                                       :
                                     </strong>{" "}
                                     {servicesText}
                                   </div>
+                                  <div className="text-sm text-gray-600 mb-1">
+                                    <strong>Duração Total:</strong>{" "}
+                                    {totalDuration} minutos
+                                  </div>
+                                  <div className="text-sm text-gray-600 mb-1">
+                                    <strong>Valor Total:</strong>{" "}
+                                    R$ {(totalPrice / 100).toFixed(2)}
+                                  </div>
                                   <div className="text-sm text-gray-600">
                                     <strong>Horário:</strong>{" "}
-                                    {primaryAppointment.time}
+                                    {(() => {
+                                      // Calculate end time based on total duration
+                                      const requiredSlots = Math.ceil(totalDuration / 30);
+                                    
+                                      if (requiredSlots > 1 && times.includes(primaryAppointment.time)) {
+                                        const startIndex = times.indexOf(primaryAppointment.time);
+                                        const endIndex = Math.min(
+                                          startIndex + requiredSlots - 1,
+                                          times.length - 1
+                                        );
+                                        const endTime = times[endIndex];
+                                        return `${primaryAppointment.time} - ${endTime}`;
+                                      }
+                                      return primaryAppointment.time;
+                                    })()}
                                   </div>
                                 </div>
 
@@ -411,8 +503,33 @@ export function AppointentsList({ times }: AppointentsListProps) {
                     className="flex items-center py-2 border-t last:border-b"
                   >
                     <div className="w-16 text-sm font-semibold">{slot}</div>
-                    <div className="flex-1 text-sm text-gray-500">
-                      Disponível
+                    <div className="flex-1 text-sm">
+                      {professionalsLoading ? (
+                        <span className="text-gray-500">Carregando profissionais...</span>
+                      ) : professionalsData && professionalsData.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {professionalsData.map((professional: any) => {
+                            const isOccupied = professionalOccupancyMap[professional.id]?.has(slot);
+                            return (
+                              <span 
+                                key={professional.id}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                                  isOccupied 
+                                    ? "bg-red-100 text-red-800" 
+                                    : "bg-green-100 text-green-800"
+                                }`}
+                              >
+                                {professional.name}
+                                <span className="ml-1">
+                                  {isOccupied ? "(Ocupado)" : "(Disponível)"}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">Nenhum profissional cadastrado</span>
+                      )}
                     </div>
                   </div>
                 );

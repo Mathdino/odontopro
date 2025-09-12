@@ -30,7 +30,7 @@ export function isToday(date: Date) {
 }
 
 /**
- * Verificar se o slot está bloqueado
+ * Verificar se o slot está bloqueado considerando a duração dos serviços
  */
 export function isSlotSequenceAvailable(
   slotStart: string, // Primeiro horario disponivel
@@ -39,10 +39,16 @@ export function isSlotSequenceAvailable(
   blockedSlots: string[] // Todos os slots bloqueados
 ) {
   const startIndex = allSlots.indexOf(slotStart);
-  if (startIndex === -1 || startIndex + requiredSlots > allSlots.length) {
+  if (startIndex === -1) {
     return false;
-  } //Se quiser poder deixar os agendamentos ultrapassarem o ultimo horário , comente: || startIndex + requiredSlots > allSlots.length
+  }
+  
+  // Verificar se há slots suficientes disponíveis
+  if (startIndex + requiredSlots > allSlots.length) {
+    return false;
+  }
 
+  // Verificar se todos os slots necessários estão disponíveis
   for (let i = startIndex; i < startIndex + requiredSlots; i++) {
     const slotTime = allSlots[i];
 

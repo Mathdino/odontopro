@@ -183,29 +183,6 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
     fetchReviewsData();
   }, [clinic.id]);
 
-  // Buscar dados das avaliações
-  useEffect(() => {
-    const fetchReviewsData = async () => {
-      try {
-        const response = await fetch(
-          `/api/reviews/get-reviews?clinicId=${clinic.id}`
-        );
-        const data = await response.json();
-
-        if (data.ok) {
-          setReviewsData({
-            averageRating: data.averageRating || 0,
-            totalReviews: data.totalReviews || 0,
-          });
-        }
-      } catch (error) {
-        console.error("Erro ao buscar avaliações:", error);
-      }
-    };
-
-    fetchReviewsData();
-  }, [clinic.id]);
-
   const fetchBlockedTimes = useCallback(
     async (date: Date): Promise<string[]> => {
       setLoadingSlots(true);
@@ -353,32 +330,28 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
       return;
     }
 
-    // Create appointments for each selected service
+    // Create a single appointment with multiple services
     try {
-      const appointmentPromises = formData.serviceIds.map(serviceId => 
-        createNewAppointment({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          date: formData.date,
-          serviceId: serviceId,
-          clinicId: clinic.id,
-          time: selectedTime,
-          professionalId: selectedProfessionalId,
-        })
-      );
+      const response = await createNewAppointment({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        date: formData.date,
+        // Pass all service IDs in a single request
+        serviceIds: formData.serviceIds,
+        clinicId: clinic.id,
+        time: selectedTime,
+        professionalId: selectedProfessionalId,
+      });
 
-      const responses = await Promise.all(appointmentPromises);
-      
-      // Check if any appointment failed
-      const failedAppointments = responses.filter(response => response.error);
-      
-      if (failedAppointments.length > 0) {
-        toast.error(`Erro ao criar ${failedAppointments.length} agendamento(s): ${failedAppointments[0].error}`);
+      if (response.error) {
+        toast.error(`Erro ao criar agendamento: ${response.error}`);
         return;
       }
 
-      toast.success(`${formData.serviceIds.length} agendamento(s) realizado(s) com sucesso!`);
+      toast.success("Agendamento realizado com sucesso!");
+
+      // Reset form and state
       form.reset();
       setSelectedTime("");
       setSelectedProfessionalId("");
@@ -387,7 +360,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
       setSelectedServices([]);
       setShowFloatingModal(false);
 
-      // Adicionar: atualizar lista de horários bloqueados
+      // Update blocked times
       if (selectedDate) {
         fetchBlockedTimes(selectedDate).then((blocked) => {
           setBlockedTimes(blocked);
@@ -400,7 +373,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
         });
       }
     } catch (error) {
-      toast.error("Erro inesperado ao criar agendamentos");
+      toast.error("Erro inesperado ao criar agendamento");
     }
   }
 
@@ -1010,6 +983,7 @@ export function ScheduleContent({ clinic }: ScheduleContentProps) {
                                 selectedProfessionalId === professional.id
                               }
                               onSelect={setSelectedProfessionalId}
+                              isAvailable={true} // The API already filters for available professionals
                             />
                           ))}
                         </div>

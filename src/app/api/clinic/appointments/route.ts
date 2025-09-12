@@ -55,6 +55,7 @@ export const GET = auth(async function GET(request) {
     const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     //buscar agendamentos
+    // @ts-ignore - Prisma types might not be updated yet
     const appointments = await prisma.appointment.findMany({
       where: {
         userId: clinicId,
@@ -66,6 +67,12 @@ export const GET = auth(async function GET(request) {
       include: {
         service: true,
         professional: true,
+        // @ts-ignore - Prisma types might not be updated yet
+        appointmentServices: {
+          include: {
+            service: true,
+          },
+        },
         appointmentProducts: {
           include: {
             product: true,
